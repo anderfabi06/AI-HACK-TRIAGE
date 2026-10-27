@@ -38,6 +38,22 @@ def run_triage_process(target_path: str, output_file: str = None, report_title: 
     with console.status("[bold magenta][AI ENGINE][/bold magenta] Correlacionando eventos y generando tickets de findings...", spinner="bouncingBar"):
         global_correlation_result = correlate_all_tools_with_gemini(master_tool_content, report_title)
     
+    # Validamos si el resultado es una alerta operativa de error de la API
+    is_operational_alert = "ALERTA OPERATIVA" in global_correlation_result or "Error al comunicarse" in global_correlation_result
+
+    if is_operational_alert:
+        # Mostramos la alerta de forma destacada en la consola y BLOQUEAMOS la generación del archivo
+        console.print(Panel(
+            f"[bold red]{global_correlation_result}[/bold red]",
+            title="[bold red] ERROR EN MOTOR DE IA [/bold red]",
+            border_style="red",
+            expand=True,
+            padding=(1, 2)
+        ))
+        console.print("\n[bold yellow][!] Operación cancelada: No se generará ningún archivo de reporte debido a restricciones de la API.[/bold yellow]\n")
+        return
+
+    # Si todo salió bien, mostramos el reporte en consola normalmente
     panel_content = Markdown(global_correlation_result)
     console.print(Panel(
         panel_content,
@@ -48,6 +64,7 @@ def run_triage_process(target_path: str, output_file: str = None, report_title: 
     ))
     console.print("\n")
 
+    # Guardamos el archivo únicamente si no hubo errores y se especificó la salida
     if output_file:
         try:
             output_dir = os.path.dirname(output_file)
