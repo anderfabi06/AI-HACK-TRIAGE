@@ -16,7 +16,6 @@ class TriageEngine:
         client = genai.Client(api_key=api_key)
         model_name = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
         
-        # Combinamos system instruction y prompt para Gemini si es necesario
         full_content = f"[INSTRUCCIONES DE SISTEMA]\n{system_instruction}\n\n[PETICION]\n{prompt}"
         
         try:
@@ -45,13 +44,16 @@ class TriageEngine:
                 {"role": "user", "content": prompt}
             ]
             completion = client.chat.completions.create(
-                model="openai/gpt-oss-120b",  # O el modelo rápido que prefieras en Groq (ej: llama-3.3-70b-versatile)
+                model="openai/gpt-oss-120b",  
                 messages=messages,
                 temperature=0.7
             )
             return completion.choices[0].message.content
         except Exception as e:
-            return f"[-] Error en Groq: {str(e)}"
+            error_msg = str(e)
+            if "413" in error_msg or "rate_limit_exceeded" in error_msg or "TPM" in error_msg:
+                return "[-] ALERTA OPERATIVA: LIMITE DE TOKENS POR MINUTO (TPM) SUPERADO EN GROQ. EL PAYLOAD ES MUY GRANDE."
+            return f"[-] Error en Groq: {error_msg}"
 
     def _call_openrouter(self, prompt: str, system_instruction: str) -> str:
         api_key = os.getenv("OPENROUTER_API_KEY")
@@ -65,7 +67,7 @@ class TriageEngine:
                 {"role": "user", "content": prompt}
             ]
             res = client.chat.completions.create(
-                model="inclusionai/ling-3.0-flash-vl:free",
+                model="google/gemma-4-26b-a4b-it:free",
                 messages=messages
             )
             return res.choices[0].message.content
@@ -74,14 +76,22 @@ class TriageEngine:
 
     def execute_correlation(self, master_tool_data: dict, report_title: str) -> str:
         formatted_payload = ""
+        
+        # PRE-FILTRADO INTELIGENTE: Limpiamos ruido y compactamos para ahorrar tokens
         for tool_name, content in master_tool_data.items():
+            # Filtramos líneas vacías y eliminamos espacios redundantes
+            cleaned_lines = [line.strip() for line in content.splitlines() if line.strip()]
+            compact_content = "\n".join(cleaned_lines)
+            
             formatted_payload += f"\n[TOOL MODULE: {tool_name.upper()}]\n"
-            formatted_payload += content[:10000]
+            # Límite equilibrado por herramienta (2500 caracteres) para que entren todas sin romper el TPM
+            formatted_payload += compact_content[:2500]
 
         system_instruction = (
             "Eres un Red Teamer Senior y Security Engineer (by: Jay). "
             "Tu objetivo es realizar un triaje técnico riguroso de artefactos de hacking, "
-            "sintetizar los resultados, proveer estadísticas rápidas y estructurar tickets independientes y limpios."
+            "sintetizar los resultados cruzados entre herramientas, proveer estadísticas rápidas "
+            "y estructurar tickets independientes y limpios. Sé directo y técnico, sin rodeos."
         )
 
         prompt = f"""
