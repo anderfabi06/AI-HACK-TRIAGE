@@ -67,7 +67,7 @@ class TriageEngine:
                 {"role": "user", "content": prompt}
             ]
             res = client.chat.completions.create(
-                model="google/gemma-4-26b-a4b-it:free",
+                model="google/gemma-4-31b-it:free",
                 messages=messages
             )
             return res.choices[0].message.content
