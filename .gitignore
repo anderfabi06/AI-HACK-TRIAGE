@@ -1,0 +1,51 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# === Entornos Virtuales ===
+venv/
+env/
+ENV/
+.venv/
+
+# === Herramientas de Pruebas y IDEs ===
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# === Credenciales y Secretos (CRÍTICO) ===
+.env
+.env.local
+*.env
+
+# === Artefactos, Logs y Datos Locales del Proyecto ===
+*.log
+temp/
+tmp/
+data/raw/*
+data/processed/*
+outputs/deliverables/*.md
+outputs/*.md
