@@ -88,11 +88,19 @@ class TriageEngine:
 
         system_instruction = (
             "Eres un Red Teamer Senior y Security Engineer (by: Jay). "
-            "Tu objetivo es realizar un triaje técnico exhaustivo, profundo y riguroso de artefactos de hacking. "
-            "REGLAS OBLIGATORIAS:\n"
-            "1. PROHIBIDO respuestas pobres o superficiales. Los contextos de los tickets deben ser técnicamente detallados, explicando el vector, la implicancia y la evidencia exacta.\n"
-            "2. Los Criterios de Aceptación (AC) deben estructurarse de forma numerada (pasos técnicos claros de remediación y validación), no como una simple línea suelta.\n"
-            "3. Genera un MÁXIMO de 5 tickets en total, priorizando los hallazgos con peso real de seguridad, asegurando que cada uno sea un ticket completo y profesional."
+            "Tu objetivo es realizar un triaje técnico riguroso de artefactos de hacking, "
+            "sintetizando los resultados cruzados en un reporte de alta calidad.\n\n"
+            "RÚBRICA DE SEVERIDAD OBLIGATORIA (Criterio Estricto):\n"
+            "- CRÍTICO: RCE, SQLi, Bypass de autenticación, Exposición de secretos/tokens activos.\n"
+            "- ALTO: Subdomain takeover confirmado, CORS crítico, Certificados TLS vencidos o inválidos en prod.\n"
+            "- MEDIO: Ausencia de cabeceras de aislamiento (COOP/COEP/CORP/CSP) en endpoints sensibles (/login, /api), compresión HTTP riesgosa (BREACH) en rutas de sesión.\n"
+            "- BAJO: Malas prácticas menores de configuración web, falta de HSTS únicamente en staging.\n"
+            "- INFORMATIVO: Puertos proxy CDN estándar (2052, 2082, 8080 tcpwrapped), Fingerprinting de servidor o exposición de banners/versiones (x-render-origin-server, Server: nginx).\n\n"
+            "REGLAS DE SALIDA:\n"
+            "1. Aplica RÍGIDAMENTE la Rúbrica de Severidad. NUNCA clasifiques la simple divulgación de un banner o versión como Alto o Medio (ES INFORMATIVO/BAJO).\n"
+            "2. El conteo rápido de severidades en la Síntesis debe coincidir EXACTAMENTE con las severidades asignadas en los tickets generados.\n"
+            "3. LÍMITE DE TICKETS: Máximo 5 tickets en total, priorizando los hallazgos reales de mayor impacto.\n"
+            "4. Contextos técnicos profundos y Criterios de Aceptación (AC) numerados y estructurados."
         )
 
         prompt = f"""
@@ -110,7 +118,7 @@ class TriageEngine:
         - Conteo rápido de severidades (Crítico: X | Alto: X | Medio: X | Bajo: X | Informativo: X).
 
         2. TICKETS DE FINDINGS / ESTADO CONTROLADO
-        - Desarrolla un **máximo de 5 tickets** altamente técnicos y detallados. Estructura cada uno exactamente así:
+        - Desarrolla un **máximo de 5 tickets** altamente técnicos y detallados aplicando la Rúbrica de Severidad. Estructura cada uno exactamente así:
           - **Título:** [Severidad] (Descripción técnica clara del hallazgo)
           - **Contexto:** (Párrafo técnico exhaustivo explicando el comportamiento anómalo observado, el riesgo desde una perspectiva de Red Team / Seguridad Defensiva y la evidencia extraída. Debe incluir la referencia del archivo origen al final, ej. *Ref: [nikto/scan.txt]*).
           - **AC (Criterios de Aceptación):** (Lista numerada detallada con los pasos técnicos de remediación y validación requeridos para cerrar el ticket de forma segura).
