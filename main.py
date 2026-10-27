@@ -30,21 +30,26 @@ def main():
     parser.add_argument("--path", type=str, required=True, help="Ruta de la carpeta que contiene las subcarpetas de herramientas")
     parser.add_argument("--output", type=str, default=None, help="Nombre o ruta personalizada opcional para el archivo de salida")
     parser.add_argument("--title", type=str, default="Security Triage Report", help="Nombre o título personalizado para el reporte")
+    parser.add_argument("--provider", type=str, default="gemini", choices=["gemini", "groq", "openrouter"], help="Proveedor de IA a utilizar (gemini, groq, openrouter)")
     args = parser.parse_args()
 
     if not os.path.exists(args.path):
         console.print(f"\n[bold red][!] ERROR CRITICO:[/bold red] La ruta objetivo '{args.path}' no existe en los registros.\n", style="red")
         return
 
-    # Si se especificó un título pero NO se especificó un --output manual, 
-    # autogeneramos el nombre del archivo basado en el título (ej: "Staging Orion" -> "staging_orion.md")
+    # Autogenerar nombre de archivo si no se pasa --output explícito pero sí un título personalizado
     output_target = args.output
     if not output_target and args.title != "Security Triage Report":
         output_target = f"{slugify(args.title)}.md"
     elif not output_target:
         output_target = "security_triage_report.md"
 
-    run_triage_process(args.path, output_file=output_target, report_title=args.title)
+    run_triage_process(
+        target_path=args.path, 
+        output_file=output_target, 
+        report_title=args.title, 
+        provider=args.provider
+    )
 
 if __name__ == "__main__":
     main()

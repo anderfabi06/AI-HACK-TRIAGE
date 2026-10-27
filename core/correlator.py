@@ -8,9 +8,10 @@ import os
 
 console = Console()
 
-def run_triage_process(target_path: str, output_file: str = None, report_title: str = "Security Triage Report"):
+def run_triage_process(target_path: str, output_file: str = None, report_title: str = "Security Triage Report", provider: str = "gemini"):
     console.print(f"\n[bold cyan][TARGET][/bold cyan] Analizando estructura de directorios: [underline white]{target_path}[/underline white]")
-    console.print(f"[bold cyan][TITLE][/bold cyan] Asignando nombre al reporte: [underline white]{report_title}[/underline white]\n")
+    console.print(f"[bold cyan][TITLE][/bold cyan] Asignando nombre al reporte: [underline white]{report_title}[/underline white]")
+    console.print(f"[bold cyan][PROVIDER][/bold cyan] Motor de IA seleccionado: [underline green]{provider.upper()}[/underline green]\n")
     
     with console.status("[yellow]>[/yellow] Procesando modulos y escaneando artefactos de herramientas...", spinner="dots"):
         tool_data = scan_target_directory(target_path)
@@ -35,22 +36,21 @@ def run_triage_process(target_path: str, output_file: str = None, report_title: 
         master_tool_content[tool_name] = tool_combined_content
 
     console.print("\n")
-    with console.status("[bold magenta][AI ENGINE][/bold magenta] Correlacionando eventos y generando tickets de findings...", spinner="bouncingBar"):
-        global_correlation_result = correlate_all_tools_with_gemini(master_tool_content, report_title)
+    with console.status(f"[bold magenta][AI ENGINE ({provider.upper()})][/bold magenta] Correlacionando eventos y generando tickets de findings...", spinner="bouncingBar"):
+        global_correlation_result = correlate_all_tools_with_gemini(master_tool_content, report_title, provider=provider)
     
-    # Validamos si el resultado es una alerta operativa de error de la API
-    is_operational_alert = "ALERTA OPERATIVA" in global_correlation_result or "Error al comunicarse" in global_correlation_result
+    # Validamos si el resultado es una alerta operativa o de error del proveedor
+    is_operational_alert = "ALERTA OPERATIVA" in global_correlation_result or "Error" in global_correlation_result
 
     if is_operational_alert:
-        # Mostramos la alerta de forma destacada en la consola y BLOQUEAMOS la generación del archivo
         console.print(Panel(
             f"[bold red]{global_correlation_result}[/bold red]",
-            title="[bold red] ERROR EN MOTOR DE IA [/bold red]",
+            title="[bold red] ERROR / ALERTA EN MOTOR DE IA [/bold red]",
             border_style="red",
             expand=True,
             padding=(1, 2)
         ))
-        console.print("\n[bold yellow][!] Operación cancelada: No se generará ningún archivo de reporte debido a restricciones de la API.[/bold yellow]\n")
+        console.print("\n[bold yellow][!] Operación cancelada: No se generará ningún archivo de reporte debido a restricciones del proveedor de IA.[/bold yellow]\n")
         return
 
     # Si todo salió bien, mostramos el reporte en consola normalmente
