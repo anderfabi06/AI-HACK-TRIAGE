@@ -8,11 +8,11 @@ api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key) if api_key else None
 
 def correlate_all_tools_with_gemini(master_tool_data: dict, report_title: str) -> str:
-    """Realiza la correlación global integrando un título personalizado elegido por el usuario."""
+    """Realiza la correlación global manejando errores de alta demanda y saturación de tokens de la API."""
     if not client:
         return "[-] Error: GEMINI_API_KEY no está configurada en el archivo .env"
 
-    model_name = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+    model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     
     formatted_payload = ""
     for tool_name, content in master_tool_data.items():
@@ -54,4 +54,14 @@ def correlate_all_tools_with_gemini(master_tool_data: dict, report_title: str) -
         )
         return response.text
     except Exception as e:
-        return f"[-] Error al comunicarse con la API de Gemini: {str(e)}"
+        error_msg = str(e)
+        
+        # Validación de alta demanda / servicio no disponible (503)
+        if "503" in error_msg or "UNAVAILABLE" in error_msg or "high demand" in error_msg:
+            return "[-] ALERTA OPERATIVA: EL MODELO DE IA SE ENCUENTRA EN ALTA DEMANDA EN ESTE MOMENTO. INTENTE NUEVAMENTE EN UNOS MINUTOS."
+        
+        # Validación de tokens insuficientes / límite de cuota excedido (429 / Resource Exhausted)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower() or "token" in error_msg.lower():
+            return "[-] ALERTA OPERATIVA: LIMITE DE TOKENS EXCEDIDO O CUOTA AGOTADA. REDUZCA EL VOLUMEN DE LOS ARTEFACTOS O INTENTE NUEVAMENTE MAS TARDE."
+            
+        return f"[-] Error al comunicarse con la API de Gemini: {error_msg}"
