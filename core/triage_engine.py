@@ -46,7 +46,7 @@ class TriageEngine:
             completion = client.chat.completions.create(
                 model="openai/gpt-oss-120b",  
                 messages=messages,
-                temperature=0.7
+                temperature=0.5 # Temperatura más baja para respuestas directas y precisas
             )
             return completion.choices[0].message.content
         except Exception as e:
@@ -67,7 +67,7 @@ class TriageEngine:
                 {"role": "user", "content": prompt}
             ]
             res = client.chat.completions.create(
-                model="google/gemma-4-31b-it:free",
+                model="google/gemma-4-26b-a4b-it:free",
                 messages=messages
             )
             return res.choices[0].message.content
@@ -77,21 +77,23 @@ class TriageEngine:
     def execute_correlation(self, master_tool_data: dict, report_title: str) -> str:
         formatted_payload = ""
         
-        # PRE-FILTRADO INTELIGENTE: Limpiamos ruido y compactamos para ahorrar tokens
+        # PRE-FILTRADO INTELIGENTE: Limpiamos ruido y compactamos para garantizar velocidad y bajo consumo de tokens
         for tool_name, content in master_tool_data.items():
-            # Filtramos líneas vacías y eliminamos espacios redundantes
             cleaned_lines = [line.strip() for line in content.splitlines() if line.strip()]
             compact_content = "\n".join(cleaned_lines)
             
             formatted_payload += f"\n[TOOL MODULE: {tool_name.upper()}]\n"
-            # Límite equilibrado por herramienta (2500 caracteres) para que entren todas sin romper el TPM
-            formatted_payload += compact_content[:2500]
+            # Limitamos a 2000 caracteres por herramienta para ajustarnos perfectamente al TPM de Groq/OpenRouter
+            formatted_payload += compact_content[:2000]
 
         system_instruction = (
             "Eres un Red Teamer Senior y Security Engineer (by: Jay). "
             "Tu objetivo es realizar un triaje técnico riguroso de artefactos de hacking, "
-            "sintetizar los resultados cruzados entre herramientas, proveer estadísticas rápidas "
-            "y estructurar tickets independientes y limpios. Sé directo y técnico, sin rodeos."
+            "sintetizando los resultados cruzados en un reporte ejecutivo/técnico de alta calidad. "
+            "REGLAS DE ORO:\n"
+            "1. Sé conciso y directo para optimizar el consumo de tokens y acelerar la respuesta.\n"
+            "2. LÍMITE DE TICKETS: Genera un MÁXIMO de 5 tickets en total. Si detectas hallazgos críticos o de alta relevancia, elévalos y agrégalos según corresponda sin superar este límite de 5.\n"
+            "3. Cada ticket DEBE contener obligatoriamente UN SOLO Criterio de Aceptación (AC) directo y contundente, sin sublistas extensas."
         )
 
         prompt = f"""
@@ -101,19 +103,18 @@ class TriageEngine:
         [ESTRUCTURA DE SALIDA REQUERIDA]
         Genera el informe estructurado exactamente de la siguiente forma:
 
-        # REPORTE DE TRIAJE: {report_title}
+        # REPORTE DE TRIAJE & TICKETS DE FINDINGS: {report_title}
         (Autor: by: Jay)
 
-        1. SINTESIS GLOBAL Y ESTADISTICAS DE SEVERIDAD
+        1. SÍNTESIS GLOBAL Y ESTADÍSTICAS DE SEVERIDAD
         - Resumen técnico cruzado de lo analizado en todas las herramientas para este objetivo.
-        - Conteo rápido de severidades (Critico: X | Alto: X | Medio: X | Bajo: X | Informativo: X).
+        - Conteo rápido de severidades (Crítico: X | Alto: X | Medio: X | Bajo: X | Informativo: X).
 
         2. TICKETS DE FINDINGS / ESTADO CONTROLADO
-        - Si no se encuentran vulnerabilidades reales o anomalias graves, indica un resumen de lo ejecutado y declara formalmente que todo esta controlado bajo el triaje.
-        - Si existen fallos o vulnerabilidades confirmadas, separa cada ticket de forma independiente usando bloques claros para que no se junten. Cada ticket debe incluir obligatoriamente:
-          - **Titulo:** (Descriptivo y directo)
-          - **Contexto:** (Explicacion tecnica del comportamiento observado y evidencia extraida). Incluye al final del contexto, de forma muy sutil, la referencia del archivo de origen (ej. *Ref: [nikto/scan.txt]*).
-          - **AC (Criterios de Aceptacion):** (Requerimientos de validacion y remediacion tecnica para cerrar el ticket).
+        - Agrupa los hallazgos relevantes en un **máximo de 5 tickets** (priorizando los de mayor impacto). Estructura cada uno exactamente así:
+          - **Título:** (Descriptivo y directo)
+          - **Contexto:** (Explicación técnica concisa del comportamiento observado y evidencia. Incluye referencia del archivo origen al final, ej. *Ref: [nikto/scan.txt]*).
+          - **AC (Criterio de Aceptación):** (Un único requerimiento de validación o remediación técnica clara y directa para cerrar el ticket).
 
         [DATOS RECOLECTADOS DE LAS HERRAMIENTAS]
         {formatted_payload}
