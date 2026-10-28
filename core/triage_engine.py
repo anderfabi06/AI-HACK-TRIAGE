@@ -14,7 +14,7 @@ class TriageEngine:
         
         from google import genai
         client = genai.Client(api_key=api_key)
-        model_name = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         
         full_content = f"[INSTRUCCIONES DE SISTEMA]\n{system_instruction}\n\n[PETICION]\n{prompt}"
         
@@ -46,7 +46,7 @@ class TriageEngine:
             completion = client.chat.completions.create(
                 model="openai/gpt-oss-120b",  
                 messages=messages,
-                temperature=0.6
+                temperature=0.4 # Temperatura baja para mantener rigor técnico estricto
             )
             return completion.choices[0].message.content
         except Exception as e:
@@ -77,30 +77,37 @@ class TriageEngine:
     def execute_correlation(self, master_tool_data: dict, report_title: str) -> str:
         formatted_payload = ""
         
-        # PRE-FILTRADO INTELIGENTE: Limpiamos ruido manteniendo el balance necesario para análisis profundo
+        # PRE-FILTRADO INTELIGENTE: Limpiamos ruido manteniendo el balance para análisis profundo
         for tool_name, content in master_tool_data.items():
             cleaned_lines = [line.strip() for line in content.splitlines() if line.strip()]
             compact_content = "\n".join(cleaned_lines)
             
             formatted_payload += f"\n[TOOL MODULE: {tool_name.upper()}]\n"
-            # Asignamos un límite generoso pero seguro de 3000 caracteres por herramienta para no perder contexto técnico
             formatted_payload += compact_content[:3000]
 
         system_instruction = (
             "Eres un Red Teamer Senior y Security Engineer (by: Jay). "
-            "Tu objetivo es realizar un triaje técnico riguroso de artefactos de hacking, "
-            "sintetizando los resultados cruzados en un reporte de alta calidad.\n\n"
-            "RÚBRICA DE SEVERIDAD OBLIGATORIA (Criterio Estricto):\n"
-            "- CRÍTICO: RCE, SQLi, Bypass de autenticación, Exposición de secretos/tokens activos.\n"
-            "- ALTO: Subdomain takeover confirmado, CORS crítico, Certificados TLS vencidos o inválidos en prod.\n"
-            "- MEDIO: Ausencia de cabeceras de aislamiento (COOP/COEP/CORP/CSP) en endpoints sensibles (/login, /api), compresión HTTP riesgosa (BREACH) en rutas de sesión.\n"
-            "- BAJO: Malas prácticas menores de configuración web, falta de HSTS únicamente en staging.\n"
-            "- INFORMATIVO: Puertos proxy CDN estándar (2052, 2082, 8080 tcpwrapped), Fingerprinting de servidor o exposición de banners/versiones (x-render-origin-server, Server: nginx).\n\n"
-            "REGLAS DE SALIDA:\n"
-            "1. Aplica RÍGIDAMENTE la Rúbrica de Severidad. NUNCA clasifiques la simple divulgación de un banner o versión como Alto o Medio (ES INFORMATIVO/BAJO).\n"
-            "2. El conteo rápido de severidades en la Síntesis debe coincidir EXACTAMENTE con las severidades asignadas en los tickets generados.\n"
-            "3. LÍMITE DE TICKETS: Máximo 5 tickets en total, priorizando los hallazgos reales de mayor impacto.\n"
-            "4. Contextos técnicos profundos y Criterios de Aceptación (AC) numerados y estructurados."
+            "Tu objetivo es realizar un análisis forense, correlación cruzada y síntesis técnica avanzada de artefactos de hacking.\n\n"
+            "BASE DE DATOS DE REFERENCIA Y TAXONOMÍA DE SEVERIDAD (Úsala obligatoriamente para clasificar):\n"
+            "1. SEVERIDAD ALTA:\n"
+            "   - Sub-domain takeover confirmado o DNS Wildcard mal configurado permitiendo spoofing.\n"
+            "   - Credenciales expuestas en texto plano, secretos o tokens API activos en repositorios/archivos.\n"
+            "   - Vulnerabilidades de ejecución (RCE, SQLi, LFI/RFI) confirmadas.\n"
+            "2. SEVERIDAD MEDIA:\n"
+            "   - Ausencia de cabeceras de aislamiento y protección en rutas críticas de autenticación (/login, /api): COOP, COEP, CORP, X-Permitted-Cross-Domain-Policies.\n"
+            "   - Compresión HTTP activa (deflate/gzip) en endpoints con datos sensibles (Riesgo potencial BREACH).\n"
+            "   - Configuraciones deficientes de CORS (Access-Control-Allow-Origin: *) en servicios con sesión.\n"
+            "3. SEVERIDAD BAJA:\n"
+            "   - Falta de HSTS únicamente en entornos de staging o pruebas.\n"
+            "   - Exposición de directorios menores o listados sin impacto crítico directo.\n"
+            "4. SEVERIDAD INFORMATIVA:\n"
+            "   - Divulgación de versiones o banners de software / proxy (ej. Server: nginx, x-render-origin-server, rndr-id).\n"
+            "   - Puertos proxy estándar abiertos asociados a CDNs (ej. Cloudflare 2052, 2053, 2082, 8080 en estado tcpwrapped o blocked).\n"
+            "   - Certificados TLS con vigencia menor a 60 días en plataformas PaaS con renovación automática.\n\n"
+            "REGLAS DE ANÁLISIS:\n"
+            "- Cruza la información de todas las herramientas provistas (Nmap, Nuclei, Nikto, etc.).\n"
+            "- Explica las razones técnicas fundamentadas de cada hallazgo.\n"
+            "- Diseña la ruta de verificación (re-test) exacta para que el operador ejecute las validaciones."
         )
 
         prompt = f"""
@@ -108,20 +115,23 @@ class TriageEngine:
         - **Titulo Asignado:** {report_title}
 
         [ESTRUCTURA DE SALIDA REQUERIDA]
-        Genera el informe estructurado exactamente de la siguiente forma en formato Markdown puro:
+        Genera un informe analítico y técnico en formato Markdown puro estructurado exactamente así:
 
-        # REPORTE DE TRIAJE & TICKETS DE FINDINGS: {report_title}
+        # ANÁLISIS FORENSE & CORRELACIÓN DE ARTEFACTOS: {report_title}
         (Autor: by: Jay)
 
-        1. SÍNTESIS GLOBAL Y ESTADÍSTICAS DE SEVERIDAD
-        - Redacta un párrafo analítico y completo que detalle el comportamiento global de la infraestructura evaluada, las tecnologías detectadas, la postura perimetral y las observaciones cruzadas entre todas las herramientas.
-        - Conteo rápido de severidades (Crítico: X | Alto: X | Medio: X | Bajo: X | Informativo: X).
+        1. SÍNTESIS GLOBAL & CORRELACIÓN CRUZADA
+        - Análisis unificado de los artefactos. Conecta los hallazgos perimetrales (CDN/WAF) con los resultados internos de escaneo.
+        - Conteo Rápido de Severidades (Crítico: X | Alto: X | Medio: X | Bajo: X | Informativo: X).
 
-        2. TICKETS DE FINDINGS / ESTADO CONTROLADO
-        - Desarrolla un **máximo de 5 tickets** altamente técnicos y detallados aplicando la Rúbrica de Severidad. Estructura cada uno exactamente así:
-          - **Título:** [Severidad] (Descripción técnica clara del hallazgo)
-          - **Contexto:** (Párrafo técnico exhaustivo explicando el comportamiento anómalo observado, el riesgo desde una perspectiva de Red Team / Seguridad Defensiva y la evidencia extraída. Debe incluir la referencia del archivo origen al final, ej. *Ref: [nikto/scan.txt]*).
-          - **AC (Criterios de Aceptación):** (Lista numerada detallada con los pasos técnicos de remediación y validación requeridos para cerrar el ticket de forma segura).
+        2. HALLAZGOS TÉCNICOS & VECTOR DE IMPACTO (Basado en Taxonomía)
+        - Detalla los hallazgos aplicando estrictamente la Base de Datos de Referencia anterior. Incluye el contexto técnico, la evidencia y la referencia de origen (*Ref: [herramienta/archivo.txt]*).
+
+        3. CAMINO A VERIFICAR (RUTAS DE RE-TEST)
+        - Lista los comandos operativos directos (ej. `curl -I`, re-ejecución de templates específicos de Nuclei) necesarios para validar la corrección de los puntos analizados.
+
+        4. CONCLUSIONES DE POSTURA DE SEGURIDAD
+        - Veredicto final sobre la madurez del entorno evaluado y recomendaciones estratégicas de endurecimiento (hardening).
 
         [DATOS RECOLECTADOS DE LAS HERRAMIENTAS]
         {formatted_payload}
