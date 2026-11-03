@@ -14,7 +14,7 @@ class TriageEngine:
         
         from google import genai
         client = genai.Client(api_key=api_key)
-        model_name = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         
         full_content = f"[INSTRUCCIONES DE SISTEMA]\n{system_instruction}\n\n[PETICION]\n{prompt}"
         
@@ -39,12 +39,13 @@ class TriageEngine:
         try:
             from groq import Groq
             client = Groq(api_key=api_key)
+            model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
             messages = [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": prompt}
             ]
             completion = client.chat.completions.create(
-                model="openai/gpt-oss-120b",  
+                model=model_name,  
                 messages=messages,
                 temperature=0.2 
             )
@@ -62,12 +63,13 @@ class TriageEngine:
         try:
             from openai import OpenAI
             client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+            model_name = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
             messages = [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": prompt}
             ]
             res = client.chat.completions.create(
-                model="google/gemma-4-26b-a4b-it:free",
+                model=model_name,
                 messages=messages
             )
             return res.choices[0].message.content
@@ -76,66 +78,90 @@ class TriageEngine:
 
     def execute_correlation(self, master_tool_data: dict, report_title: str, user_query: str = "") -> str:
         formatted_payload = ""
-        
+        MAX_CHARS_PER_TOOL = 35000  # Presupuesto inteligente por herramienta (reemplaza el corte ciego de 5000 chars)
+
         for tool_name, content in master_tool_data.items():
             cleaned_lines = []
             for line in content.splitlines():
                 stripped = line.strip()
-                if stripped and not stripped.startswith("---"):
+                if stripped and not stripped.startswith("--- Subfile:"):
                     cleaned_lines.append(stripped)
             
             compact_content = "\n".join(cleaned_lines)
-            formatted_payload += f"\n[TOOL MODULE: {tool_name.upper()}]\n"
-            formatted_payload += compact_content[:5000]
+            
+            # Truncamiento inteligente preservando cabecera y cierre si excede el presupuesto
+            if len(compact_content) > MAX_CHARS_PER_TOOL:
+                head_part = compact_content[:25000]
+                tail_part = compact_content[-7000:]
+                compact_content = (
+                    f"{head_part}\n\n"
+                    f"[... NOTA: Contenido extenso pre-filtrado. Omitido bloque intermedio repetitivo ({len(compact_content) - 32000} caracteres) para preservar contexto ...]\n\n"
+                    f"{tail_part}"
+                )
+
+            formatted_payload += f"\n[TOOL / ARTIFACT MODULE: {tool_name.upper()}]\n"
+            formatted_payload += compact_content + "\n"
 
         system_instruction = (
-            "Eres un Agente Pasivo de Correlación y Triage de Ciberseguridad e Infraestructura.\n"
-            "Tu rol es actuar como un motor analítico universal y directo (Zero-Execution).\n\n"
-            "DIRECTRICES DE ESTILO Y REDACCIÓN:\n"
-            "1. Cero relleno o explicaciones burocráticas. NUNCA menciones frases como 'según lo establecido se calificó' o similares.\n"
-            "2. Justificaciones estrictamente técnicas, al grano y basadas puramente en la evidencia técnica provista.\n"
-            "3. Filtra y omite por completo datos o artefactos sin impacto real de seguridad (ej. logs de inicio puros de Nmap sin puertos que no aportan valor analítico).\n"
-            "4. Sé directo, conciso y de alto impacto técnico para analistas senior.\n\n"
-            "MARCO DE SEVERIDAD:\n"
-            "- CRITICAL: RCE, bypass global de auth, exposición masiva de datos.\n"
-            "- HIGH: BOLA/IDOR, escalada de privilegios vertical, inyección directa confirmada.\n"
-            "- MEDIUM: Anomalías con potencial impacto que requieren validación manual por falta de contexto completo.\n"
-            "- LOW / INFO: Exposiciones menores, cabeceras faltantes o información puramente descriptiva."
+            "Eres un Agente Senior de Correlación y Triage de Ciberseguridad e Infraestructura (Zero-Execution).\n"
+            "Tu objetivo es asistir a analistas de ciberseguridad e infraestructura consolidando evidencias pasivas,\n"
+            "evaluando la postura de seguridad de los activos y deduplicando hallazgos sin falsos positivos.\n\n"
+            "DIRECTRICES OPERATIVAS DE CIBERSEGURIDAD:\n"
+            "1. ENFOQUE CENTRADO EN EL ACTIVO (Asset-Centric):\n"
+            "   - Agrupa y cruza evidencias por Activo (IP, FQDN/Host, Subred o Endpoint).\n"
+            "   - Correlaciona los puertos y servicios expuestos (ej. Nmap) con las vulnerabilidades y peticiones web (ej. Nuclei/fuzzers).\n"
+            "2. FRAMEWORKS Y AMENAZAS REALES:\n"
+            "   - Mapea los hallazgos a técnicas de MITRE ATT&CK (ej. T1190 Exploit Public-Facing Application, T1046 Network Service Discovery, T1078 Valid Accounts, etc.).\n"
+            "   - Evalúa la explotabilidad real y si el hallazgo cuenta con PoC pública conocida o presencia en CISA KEV (Known Exploited Vulnerabilities).\n"
+            "3. VIGILANCIA DE INFRAESTRUCTURA CRÍTICA:\n"
+            "   - Alerta con alta prioridad sobre exposición perimetral de servicios administrativos o de infraestructura (RDP 3389, SMB 445, SSH 22 desactualizado, WinRM, Bases de Datos 3306/5432/1433/27017, Kubernetes API 6443, consolas/paneles expuestos sin MFA).\n"
+            "4. ESTILO Y REDACCIÓN:\n"
+            "   - Cero relleno burocrático. Justificaciones puramente técnicas basadas en la evidencia recolectada.\n"
+            "   - Descarta ruido técnico sin impacto (ej. certificados válidos estándar o puertos cerrados).\n\n"
+            "MARCO DE SEVERIDAD ESTRICTA:\n"
+            "- CRITICAL: RCE confirmado, bypass de autenticación en infraestructura perimetral, exposición masiva de bases de datos o secretos críticos.\n"
+            "- HIGH: BOLA/IDOR, escalada de privilegios vertical, inyecciones confirmadas (SQLi/Command Injection), servicios administrativos críticos expuestos a internet (RDP/SMB/DB).\n"
+            "- MEDIUM: Anomalías con potencial impacto, versiones de software con CVEs conocidos pero sin PoC trivial confirmada, falta de configuraciones de hardening.\n"
+            "- LOW / INFO: Exposiciones menores, cabeceras faltantes o información puramente descriptiva de puertos/tecnologías."
         )
 
         prompt = f"""
         [INFORMACION DEL REPORTE]
         - **Título Asignado:** {report_title}
-        - **Foco de Análisis / Objetivo:** {user_query if user_query else "Triage y correlación directa de artefactos."}
+        - **Foco de Análisis / Objetivo:** {user_query if user_query else "Triage integral y correlación centrada en activos e infraestructura."}
 
         [ESTRUCTURA DE SALIDA REQUERIDA]
-        Genera un informe analítico en formato Markdown puro estructurado exactamente así:
+        Genera un informe analítico en formato Markdown estructurado exactamente de la siguiente manera:
 
         # INFORME DE TRIAGE Y CORRELACIÓN: {report_title}
 
-        ## 1. Resumen ejecutivo
-        - **Estado general:** (Breve, directo y enfocado en la postura de seguridad actual).
-        - **Hallazgos clave:** (Puntos concretos con impacto real, descartando ruido).
-        - **Limitaciones técnicas:** (Falta de endpoints, parámetros o logs faltantes).
+        ## 1. Resumen Ejecutivo
+        - **Postura General:** (Evaluación concisa del nivel de exposición y riesgo del entorno analizado).
+        - **Vectores de Mayor Impacto:** (Los 2 o 3 hallazgos con riesgo real de compromiso inmediato).
+        - **Limitaciones de Evidencia:** (Gaps de visibilidad, herramientas faltantes o escaneos incompletos).
 
-        ## 2. Correlación de evidencias
-        Presenta una tabla clara y limpia cruzando exclusivamente los artefactos que tengan relevancia operativa:
-        | Herramienta | Evidencia Concreta | Análisis de Correlación |
+        ## 2. Superficie de Ataque y Correlación por Activo (Asset-Centric)
+        Presenta una tabla consolidando los activos identificados y sus evidencias cruzadas:
+        | Activo (IP / Hostname) | Puertos y Servicios Detectados | Detecciones / Hallazgos Cruzados | Nivel de Riesgo del Activo |
 
-        ## 3. Hallazgos priorizados
-        Presenta una tabla limpia con los hallazgos con impacto o sospechas fundadas:
-        | ID | Descripción Técnica | Activo / Endpoint | Evidencia (Ref) | Severidad | Estado |
+        ## 3. Hallazgos Priorizados (MITRE ATT&CK & Explotabilidad)
+        Presenta la tabla con los hallazgos validados o sospechas fundadas:
+        | ID | Descripción Técnica | Activo Afectado | MITRE ATT&CK | Explotabilidad / KEV | Severidad | Estado |
 
-        ## 4. Guía de validación manual (Scope & Metodología)
-        - **Herramienta ideal:** (ej. Burp Suite, Caido, etc.)
-        - **Scope y Parámetros:** (Endpoints o vectores a probar).
-        - **Acción táctica:** (Qué probar o manipular puntualmente).
-        - **Criterio de Veredicto:** (Cómo confirmar vs descartar falso positivo en 1 línea).
+        ## 4. Auditoría de Infraestructura y Servicios Críticos Expuestos
+        - **Servicios Administrativos / Bases de Datos:** (Revisión de exposición de RDP, SSH, SMB, DBs, paneles de gestión).
+        - **Configuraciones Débiles / Hardening:** (Versiones obsoletas, cifrados débiles o falta de segmentación).
 
-        ## 5. Conteo de severidades
+        ## 5. Guía de Validación Táctica (Manual Verification & PoC)
+        - **Herramienta ideal:** (ej. Burp Suite, Nmap NSE, curl, Caido).
+        - **Scope y Parámetros:** (Endpoints, puertos o parámetros exactos a testear).
+        - **Acción táctica:** (Payload o prueba concreta sin afectar la disponibilidad).
+        - **Criterio de Veredicto:** (Cómo confirmar vulnerabilidad vs descartar falso positivo en 1 línea).
+
+        ## 6. Conteo de Severidades
         Crítico: X | Alto: X | Medio: X | Bajo/Info: X
 
-        [DATOS RECOLECTADOS DE LAS HERRAMIENTAS]
+        [DATOS RECOLECTADOS DE LAS HERRAMIENTAS GUARDADAS POR EL ANALISTA]
         {formatted_payload}
         """
 

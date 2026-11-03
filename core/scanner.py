@@ -1,35 +1,59 @@
 import os
+from parsers import clean_and_parse_tool_data
 
-def scan_target_directory(base_path: str) -> dict:
+def scan_and_load_target(base_path: str) -> dict:
     """
-    Escanea la ruta objetivo y mapea las carpetas basándose en los nombres de las herramientas.
-    Retorna un diccionario: {"nmap": ["archivo1.txt", ...], "nuclei": ["archivo2.json", ...]}
-    """
-    tool_data = {}
+    Escanea la ruta objetivo provista por el analista y reconoce las herramientas utilizadas
+    a partir del nombre de las carpetas o de los nombres de los archivos.
     
+    Aplica el pre-filtrado y parseo inteligente de ruido automáticamente.
+    Retorna un diccionario: { "tool_name": "contenido_limpio_y_estructurado" }
+    """
+    master_tool_data = {}
+
     if not os.path.exists(base_path):
-        return tool_data
+        return master_tool_data
 
     # Listar elementos en la ruta base
     try:
-        entries = os.listdir(base_path)
+        entries = sorted(os.listdir(base_path))
     except Exception as e:
-        print(f"[-] Error al leer el directorio: {e}")
-        return tool_data
+        print(f"[-] Error al leer la ruta objetivo: {e}")
+        return master_tool_data
 
     for entry in entries:
         entry_path = os.path.join(base_path, entry)
-        
-        # Si es un directorio, asumimos que el nombre es la herramienta (ej: nmap, nuclei, gobuster)
+
+        # Caso 1: Es una carpeta nombrada con la herramienta (ej: /nmap, /nuclei, /gobuster)
         if os.path.isdir(entry_path):
             tool_name = entry.lower()
-            tool_files = []
+            combined_content = []
             
             for root, _, files in os.walk(entry_path):
-                for file in files:
-                    tool_files.append(os.path.join(root, file))
-            
-            if tool_files:
-                tool_data[tool_name] = tool_files
+                for file in sorted(files):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                            raw_text = f.read()
+                            if raw_text.strip():
+                                combined_content.append(f"--- Subfile: {file} ---\n{raw_text}")
+                    except Exception as e:
+                        print(f"    [!] Error al leer {file_path}: {e}")
 
-    return tool_data
+            if combined_content:
+                full_raw = "\n\n".join(combined_content)
+                master_tool_data[tool_name] = clean_and_parse_tool_data(tool_name, full_raw)
+
+        # Caso 2: Es un archivo directo en la raíz de la ruta (ej: nmap.txt, nuclei.json)
+        elif os.path.isfile(entry_path):
+            tool_name, _ = os.path.splitext(entry)
+            tool_name = tool_name.lower()
+            try:
+                with open(entry_path, "r", encoding="utf-8", errors="ignore") as f:
+                    raw_text = f.read()
+                    if raw_text.strip():
+                        master_tool_data[tool_name] = clean_and_parse_tool_data(tool_name, raw_text)
+            except Exception as e:
+                print(f"    [!] Error al leer archivo {entry_path}: {e}")
+
+    return master_tool_data

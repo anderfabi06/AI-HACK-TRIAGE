@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--output", type=str, default=None, help="Nombre o ruta personalizada opcional para el archivo de salida")
     parser.add_argument("--title", type=str, default="Security Triage Report", help="Nombre o título personalizado para el reporte")
     parser.add_argument("--provider", type=str, default="gemini", choices=["gemini", "groq", "openrouter"], help="Proveedor de IA a utilizar")
+    parser.add_argument("--focus", "--objective", dest="focus", type=str, default=None, help="Objetivo o foco de análisis opcional (omite la solicitud interactiva)")
     args = parser.parse_args()
 
     if not os.path.exists(args.path):
@@ -46,7 +47,8 @@ def main():
         target_path=args.path, 
         output_file=output_target, 
         report_title=args.title, 
-        provider=args.provider
+        provider=args.provider,
+        focus_query=args.focus
     )
 
 if __name__ == "__main__":

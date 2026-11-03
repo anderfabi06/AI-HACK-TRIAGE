@@ -1,9 +1,10 @@
-import os
-import re
 import readline  # <-- Habilita el control nativo de flechas y cursor en la terminal
+import re
 from rich.console import Console
 from rich.markdown import Markdown
+from core.scanner import scan_and_load_target
 from core.triage_engine import correlate_all_tools_with_gemini
+from outputs.reporter import save_report_to_markdown
 
 console = Console()
 
@@ -16,53 +17,36 @@ def sanitize_terminal_input(raw_input: str) -> str:
     cleaned = cleaned.replace('^[[', '')
     return cleaned.strip()
 
-def run_triage_process(target_path: str, output_file: str, report_title: str, provider: str):
+def run_triage_process(target_path: str, output_file: str, report_title: str, provider: str, focus_query: str = None):
     console.print(f"\n[cyan][*] EXPLORING TARGET PATH:[/cyan] {target_path}")
     
-    master_tool_data = {}
+    # Ingestión inteligente y reconocimiento automático de herramientas por carpetas/archivos
+    master_tool_data = scan_and_load_target(target_path)
     
-    if os.path.isdir(target_path):
-        items = os.listdir(target_path)
-        for item in items:
-            item_path = os.path.join(target_path, item)
-            if os.path.isfile(item_path):
-                tool_name, _ = os.path.splitext(item)
-                try:
-                    with open(item_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        master_tool_data[tool_name] = f.read()
-                        console.print(f"    [+] ARTIFACT LOADED: [green]{item}[/green]")
-                except Exception as e:
-                    console.print(f"    [!] READ ERROR {item}: {e}", style="yellow")
-            
-            elif os.path.isdir(item_path):
-                tool_name = item
-                tool_content = ""
-                for subfile in os.listdir(item_path):
-                    subfile_path = os.path.join(item_path, subfile)
-                    if os.path.isfile(subfile_path):
-                        try:
-                            with open(subfile_path, 'r', encoding='utf-8', errors='ignore') as f:
-                                tool_content += f"\n--- Subfile: {subfile} ---\n" + f.read()
-                        except Exception as e:
-                            console.print(f"    [!] SUBFILE READ ERROR {subfile}: {e}", style="yellow")
-                if tool_content:
-                    master_tool_data[tool_name] = tool_content
-                    console.print(f"    [+] MODULE LOADED: [green]{tool_name}[/green]")
+    for tool_name, data in master_tool_data.items():
+        data_preview_len = len(data)
+        console.print(f"    [+] TOOL/MODULE RECOGNIZED: [green]{tool_name.upper()}[/green] ([dim]{data_preview_len} chars parsed & cleaned[/dim])")
 
     if not master_tool_data:
         console.print("\n[red][!] CRITICAL ERROR: NO READABLE ARTIFACTS FOUND.[/red]\n", style="red")
         return
 
-    try:
-        console.print("\n" + "─"*50)
-        raw_query = input("[?] ANALYSIS OBJECTIVE / CORRELATION FOCUS > ")
-        user_query = sanitize_terminal_input(raw_query)
-    except (KeyboardInterrupt, EOFError):
-        console.print("\n[red][!] OPERATION ABORTED BY USER.[/red]")
-        return
-    console.print("─"*50)
+    # Si se especificó el objetivo por argumento CLI, se usa directamente; de lo contrario se pregunta en terminal
+    user_query = ""
+    if focus_query:
+        user_query = sanitize_terminal_input(focus_query)
+        console.print(f"\n[cyan][?] ANALYSIS OBJECTIVE / CORRELATION FOCUS:[/cyan] {user_query}")
+    else:
+        try:
+            console.print("\n" + "─"*50)
+            raw_query = input("[?] ANALYSIS OBJECTIVE / CORRELATION FOCUS > ")
+            user_query = sanitize_terminal_input(raw_query)
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[red][!] OPERATION ABORTED BY USER.[/red]")
+            return
+        console.print("─"*50)
 
-    console.print(f"\n[yellow][*] EXECUTING PASSIVE CORRELATION ({provider.upper()})...[/yellow]")
+    console.print(f"\n[yellow][*] EXECUTING ASSET-CENTRIC CORRELATION ({provider.upper()})...[/yellow]")
     
     report_markdown = correlate_all_tools_with_gemini(
         master_tool_data=master_tool_data, 
@@ -75,14 +59,9 @@ def run_triage_process(target_path: str, output_file: str, report_title: str, pr
     console.print(Markdown(report_markdown))
     console.print("\n" + "═"*50 + "\n")
 
-    output_dir = "outputs"
-    os.makedirs(output_dir, exist_ok=True)
-    
-    final_output_path = output_file if os.path.isabs(output_file) or "/" in output_file or "\\" in output_file else os.path.join(output_dir, output_file)
-    
+    # Guardado a través del módulo centralizado reporter
     try:
-        with open(final_output_path, 'w', encoding='utf-8') as f:
-            f.write(report_markdown)
+        final_output_path = save_report_to_markdown(report_markdown, output_file)
         console.print(f"[green][+] REPORT COMPILED SUCCESSFULLY:[/green] [cyan]{final_output_path}[/cyan]\n")
     except Exception as e:
         console.print(f"\n[red][!] WRITE ERROR: {e}[/red]\n", style="red")
