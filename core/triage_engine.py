@@ -118,7 +118,12 @@ class TriageEngine:
             "1. Menos secciones dispersas, mayor densidad y síntesis técnica. Cero texto de relleno.\n"
             "2. Nunca uses títulos informales o condescendientes (prohibido usar frases como 'sección para jefes').\n"
             "3. La postura general debe transmitir con precisión el riesgo operativo del activo/perímetro.\n"
-            "4. En la validación táctica, incluye comandos concretos (curl, nmap, openssl, etc.) y la regla exacta para descartar falsos positivos.\n\n"
+            "4. En la validación táctica, incluye comandos concretos (curl, nmap, openssl, etc.) y la regla exacta para descartar falsos positivos.\n"
+            "5. CONSISTENCIA ESTRICTA DE SEVERIDAD:\n"
+            "   - La severidad asignada a un hallazgo en la Matriz (ej. MEDIUM) debe mantenerse coherente en todo el documento. Queda estrictamente prohibido contradecirte (ej. clasificar un hallazgo como MEDIUM en la tabla y luego llamarlo 'Prioridad Alta' en otro lado).\n"
+            "   - NO agregues tablas o anexos adicionales al final (como 'Resumen de Prioridades'). El documento concluye de manera limpia y formal tras la Sección 3.\n"
+            "6. CITAS Y REFERENCIAS TÉCNICAS VERIFICABLES:\n"
+            "   - Cuando menciones scripts, exploits o PoCs existentes (ej. scripts de prueba, repositorios o herramientas externas), DEBES especificar el autor, el repositorio de procedencia (ej. GitHub o advisory oficial) y el CVE/RFC exacto. NUNCA menciones nombres genéricos como 'script breach.py disponible' sin indicar autoría o fuente.\n\n"
             "MARCO DE SEVERIDAD:\n"
             "- CRITICAL: RCE confirmado, bypass perimetral, exposición directa de bases de datos/secretos maestros.\n"
             "- HIGH: BOLA/IDOR, inyecciones confirmadas, servicios críticos de administración expuestos a internet (RDP, SMB, DBs, K8s).\n"
@@ -132,7 +137,7 @@ class TriageEngine:
         - **Foco de Análisis / Objetivo:** {user_query if user_query else "Triage técnico sintetizado y correlación de seguridad."}
 
         [ESTRUCTURA DE SALIDA REQUERIDA]
-        Genera un informe analítico en Markdown estructurado exactamente en las siguientes 3 secciones consolidadas:
+        Genera un informe analítico en Markdown estructurado exactamente en las siguientes 3 secciones consolidadas (NO agregues secciones ni tablas extra al final):
 
         # INFORME TÉCNICO DE TRIAGE: {report_title}
 
@@ -150,6 +155,7 @@ class TriageEngine:
 
         ### [ID] - [Nombre del Hallazgo / Vulnerabilidad]
         - **Impacto Real:** (Riesgo operativo o técnico si es explotado, en 1 o 2 líneas).
+        - **Referencias Técnicas & Fuentes:** (CVE oficial, autor de la investigación / paper y enlace o repositorio GitHub verificable del exploit/PoC).
         - **Prueba de Descarte (Comando / Acción):** (Comando exacto con curl, nmap NSE, openssl u otra herramienta para verificar en frío).
         - **Criterio de Veredicto:** (Cómo confirmar la vulnerabilidad vs cómo descartarla como falso positivo en 1 línea).
         - **Acción Correctiva:** (Qué configuración, parche o regla de firewall aplicar puntualmente).
