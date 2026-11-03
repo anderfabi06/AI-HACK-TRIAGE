@@ -1,5 +1,10 @@
+# --- AI & LLM SDKs ---
 google-genai
-pydantic
-python-dotenv
-pyyaml
+groq
+openai
+
+# --- Terminal UI & Rendering ---
 rich
+
+# --- Environment Management ---
+python-dotenv
