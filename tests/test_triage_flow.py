@@ -77,6 +77,27 @@ def test_parsers():
     assert "CIFRADO INSEGURO" in cleaned_sslscan
     print("[✓] SSLScan Parser OK")
 
+    # 5. Test Nikto Parser (con el caso real del usuario)
+    nikto_sample = """
+    - Nikto v2.6.0/
+    + Target Host: orion-web-staging-umn5.onrender.com
+    + Target Port: 443
+    + GET /login/: Uncommon header(s) 'x-render-origin-server' found, with contents: nginx/1.31.8.
+    + GET /login/: Uncommon header(s) 'rndr-id' found, with contents: f25e70c8-18a1-4012.
+    + GET /login/: An alt-svc header was found which is advertising HTTP/3. The endpoint is: ':443'. Nikto cannot test HTTP/3 over QUIC. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/alt-svc: 
+    + GET /login/: Cloudflare detected via cf-ray header. Recommend proxying via Burp or mitmproxy to avoid TLS fingerprint blocks. See: https://github.com/sullo/nikto/wiki/Using-a-Proxy: 
+    + SSL Info:           Subject:  /CN=onrender.com
+    + GET /login/: The Content-Encoding header is set to "deflate" which may mean that the server is vulnerable to the BREACH attack. See: http://breachattack.com/: 
+    """
+    cleaned_nikto = clean_and_parse_tool_data("nikto", nikto_sample)
+    assert "nginx/1.31.8" in cleaned_nikto
+    assert "Cloudflare" in cleaned_nikto
+    assert "BREACH" in cleaned_nikto
+    assert "rndr-id" not in cleaned_nikto  # Verificamos que se filtró el header basura
+    assert "Nikto cannot test" not in cleaned_nikto
+    assert "See: https://" not in cleaned_nikto
+    print("[✓] Nikto Parser OK")
+
 def test_scanner_and_tool_recognition():
     tmp_dir = tempfile.mkdtemp()
     try:
