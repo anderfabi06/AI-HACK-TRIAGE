@@ -111,63 +111,48 @@ class TriageEngine:
             formatted_payload += compact_content + "\n"
 
         system_instruction = (
-            "Eres un Agente Senior de Correlación y Triage de Ciberseguridad e Infraestructura (Zero-Execution).\n"
-            "Tu objetivo es asistir a analistas de ciberseguridad e infraestructura consolidando evidencias pasivas,\n"
-            "evaluando la postura de seguridad de los activos y deduplicando hallazgos sin falsos positivos.\n\n"
-            "DIRECTRICES OPERATIVAS DE CIBERSEGURIDAD:\n"
-            "1. ENFOQUE CENTRADO EN EL ACTIVO (Asset-Centric):\n"
-            "   - Agrupa y cruza evidencias por Activo (IP, FQDN/Host, Subred o Endpoint).\n"
-            "   - Correlaciona los puertos y servicios expuestos (ej. Nmap) con las vulnerabilidades y peticiones web (ej. Nuclei/fuzzers).\n"
-            "2. FRAMEWORKS Y AMENAZAS REALES:\n"
-            "   - Mapea los hallazgos a técnicas de MITRE ATT&CK (ej. T1190 Exploit Public-Facing Application, T1046 Network Service Discovery, T1078 Valid Accounts, etc.).\n"
-            "   - Evalúa la explotabilidad real y si el hallazgo cuenta con PoC pública conocida o presencia en CISA KEV (Known Exploited Vulnerabilities).\n"
-            "3. VIGILANCIA DE INFRAESTRUCTURA CRÍTICA:\n"
-            "   - Alerta con alta prioridad sobre exposición perimetral de servicios administrativos o de infraestructura (RDP 3389, SMB 445, SSH 22 desactualizado, WinRM, Bases de Datos 3306/5432/1433/27017, Kubernetes API 6443, consolas/paneles expuestos sin MFA).\n"
-            "4. ESTILO Y REDACCIÓN:\n"
-            "   - Cero relleno burocrático. Justificaciones puramente técnicas basadas en la evidencia recolectada.\n"
-            "   - Descarta ruido técnico sin impacto (ej. certificados válidos estándar o puertos cerrados).\n\n"
-            "MARCO DE SEVERIDAD ESTRICTA:\n"
-            "- CRITICAL: RCE confirmado, bypass de autenticación en infraestructura perimetral, exposición masiva de bases de datos o secretos críticos.\n"
-            "- HIGH: BOLA/IDOR, escalada de privilegios vertical, inyecciones confirmadas (SQLi/Command Injection), servicios administrativos críticos expuestos a internet (RDP/SMB/DB).\n"
-            "- MEDIUM: Anomalías con potencial impacto, versiones de software con CVEs conocidos pero sin PoC trivial confirmada, falta de configuraciones de hardening.\n"
-            "- LOW / INFO: Exposiciones menores, cabeceras faltantes o información puramente descriptiva de puertos/tecnologías."
+            "Eres un Analista Senior de Ciberseguridad e Infraestructura (Zero-Execution Triage Engine).\n"
+            "Tu misión es sintetizar artefactos y evidencias técnicas recolectadas para entregar un informe\n"
+            "riguroso, conciso y de alto impacto, apto para ser presentado tanto a líderes técnicos como a gerencia.\n\n"
+            "REGLAS DE SÍNTESIS Y ESTILO:\n"
+            "1. Menos secciones dispersas, mayor densidad y síntesis técnica. Cero texto de relleno.\n"
+            "2. Nunca uses títulos informales o condescendientes (prohibido usar frases como 'sección para jefes').\n"
+            "3. La postura general debe transmitir con precisión el riesgo operativo del activo/perímetro.\n"
+            "4. En la validación táctica, incluye comandos concretos (curl, nmap, openssl, etc.) y la regla exacta para descartar falsos positivos.\n\n"
+            "MARCO DE SEVERIDAD:\n"
+            "- CRITICAL: RCE confirmado, bypass perimetral, exposición directa de bases de datos/secretos maestros.\n"
+            "- HIGH: BOLA/IDOR, inyecciones confirmadas, servicios críticos de administración expuestos a internet (RDP, SMB, DBs, K8s).\n"
+            "- MEDIUM: Versiones con CVEs sin PoC trivial inmediata, falta de hardening, cifrados obsoletos.\n"
+            "- LOW / INFO: Información descriptiva, cabeceras de cabecera menores sin impacto explotable."
         )
 
         prompt = f"""
         [INFORMACION DEL REPORTE]
         - **Título Asignado:** {report_title}
-        - **Foco de Análisis / Objetivo:** {user_query if user_query else "Triage integral y correlación centrada en activos e infraestructura."}
+        - **Foco de Análisis / Objetivo:** {user_query if user_query else "Triage técnico sintetizado y correlación de seguridad."}
 
         [ESTRUCTURA DE SALIDA REQUERIDA]
-        Genera un informe analítico en formato Markdown estructurado exactamente de la siguiente manera:
+        Genera un informe analítico en Markdown estructurado exactamente en las siguientes 3 secciones consolidadas:
 
-        # INFORME DE TRIAGE Y CORRELACIÓN: {report_title}
+        # INFORME TÉCNICO DE TRIAGE: {report_title}
 
-        ## 1. Resumen Ejecutivo
-        - **Postura General:** (Evaluación concisa del nivel de exposición y riesgo del entorno analizado).
-        - **Vectores de Mayor Impacto:** (Los 2 o 3 hallazgos con riesgo real de compromiso inmediato).
-        - **Limitaciones de Evidencia:** (Gaps de visibilidad, herramientas faltantes o escaneos incompletos).
+        ## 1. Evaluación de Postura y Riesgo Ejecutivo
+        - **Diagnóstico General:** (Síntesis técnica del nivel de exposición perimetral, vectores de ataque plausibles y madurez de la infraestructura).
+        - **Métricas Consolidadas:** Crítico: X | Alto: X | Medio: X | Bajo/Info: X
+        - **Vectores Clave de Atención Inmediata:** (Puntos críticos de impacto real en la continuidad o seguridad del servicio).
 
-        ## 2. Superficie de Ataque y Correlación por Activo (Asset-Centric)
-        Presenta una tabla consolidando los activos identificados y sus evidencias cruzadas:
-        | Activo (IP / Hostname) | Puertos y Servicios Detectados | Detecciones / Hallazgos Cruzados | Nivel de Riesgo del Activo |
+        ## 2. Matriz Consolidada de Hallazgos y Correlación de Activos
+        Presenta una única tabla integral cruzando activos, herramientas y frameworks:
+        | ID | Activo / Servicio | Hallazgo Técnico | Evidencia Cruzada | MITRE ATT&CK | Explotabilidad / KEV | Severidad |
 
-        ## 3. Hallazgos Priorizados (MITRE ATT&CK & Explotabilidad)
-        Presenta la tabla con los hallazgos validados o sospechas fundadas:
-        | ID | Descripción Técnica | Activo Afectado | MITRE ATT&CK | Explotabilidad / KEV | Severidad | Estado |
+        ## 3. Plan de Validación Táctica, Descarte de Falsos Positivos y Remediación
+        Para cada hallazgo relevante de la matriz (o grupo de hallazgos relacionados):
 
-        ## 4. Auditoría de Infraestructura y Servicios Críticos Expuestos
-        - **Servicios Administrativos / Bases de Datos:** (Revisión de exposición de RDP, SSH, SMB, DBs, paneles de gestión).
-        - **Configuraciones Débiles / Hardening:** (Versiones obsoletas, cifrados débiles o falta de segmentación).
-
-        ## 5. Guía de Validación Táctica (Manual Verification & PoC)
-        - **Herramienta ideal:** (ej. Burp Suite, Nmap NSE, curl, Caido).
-        - **Scope y Parámetros:** (Endpoints, puertos o parámetros exactos a testear).
-        - **Acción táctica:** (Payload o prueba concreta sin afectar la disponibilidad).
-        - **Criterio de Veredicto:** (Cómo confirmar vulnerabilidad vs descartar falso positivo en 1 línea).
-
-        ## 6. Conteo de Severidades
-        Crítico: X | Alto: X | Medio: X | Bajo/Info: X
+        ### [ID] - [Nombre del Hallazgo / Vulnerabilidad]
+        - **Impacto Real:** (Riesgo operativo o técnico si es explotado, en 1 o 2 líneas).
+        - **Prueba de Descarte (Comando / Acción):** (Comando exacto con curl, nmap NSE, openssl u otra herramienta para verificar en frío).
+        - **Criterio de Veredicto:** (Cómo confirmar la vulnerabilidad vs cómo descartarla como falso positivo en 1 línea).
+        - **Acción Correctiva:** (Qué configuración, parche o regla de firewall aplicar puntualmente).
 
         [DATOS RECOLECTADOS DE LAS HERRAMIENTAS GUARDADAS POR EL ANALISTA]
         {formatted_payload}
