@@ -41,6 +41,42 @@ def test_parsers():
     assert "192.168.1.50:22" in cleaned_nuclei
     print("[✓] Nuclei Parser OK")
 
+    # 3. Test TestSSL Parser
+    testssl_sample = """
+    Start 2026-11-03 12:00
+    Testing protocols via sockets except NPN+ALPN 
+    SSLv2      not offered (OK)
+    SSLv3      not offered (OK)
+    TLS 1      offered (deprecated)
+    TLS 1.1    not offered (OK)
+    TLS 1.2    offered (OK)
+    TLS 1.3    offered (OK)
+    Testing vulnerabilities
+    Heartbleed (CVE-2014-0160)                not vulnerable (OK)
+    SWEET32 (CVE-2016-2183, CVE-2016-6329)    VULNERABLE (NOT ok)
+    POODLE, SSL (CVE-2014-3566)               not vulnerable (OK)
+    """
+    cleaned_testssl = clean_and_parse_tool_data("testssl", testssl_sample)
+    assert "PROTOCOLO OBSOLETO HABILITADO" in cleaned_testssl
+    assert "SWEET32" in cleaned_testssl
+    assert "not vulnerable (OK)" not in cleaned_testssl  # Verificamos que se filtró el ruido negativo
+    print("[✓] TestSSL Parser OK")
+
+    # 4. Test SSLScan Parser
+    sslscan_sample = """
+    SSL/TLS Protocols:
+    SSLv3     disabled
+    TLSv1.0   enabled
+    TLSv1.2   enabled
+    Supported Server Cipher(s):
+    Accepted  TLSv1.0  128 bits  RC4-SHA (INSECURE)
+    Accepted  TLSv1.2  256 bits  AES256-GCM-SHA384
+    """
+    cleaned_sslscan = clean_and_parse_tool_data("sslscan", sslscan_sample)
+    assert "PROTOCOLO OBSOLETO" in cleaned_sslscan
+    assert "CIFRADO INSEGURO" in cleaned_sslscan
+    print("[✓] SSLScan Parser OK")
+
 def test_scanner_and_tool_recognition():
     tmp_dir = tempfile.mkdtemp()
     try:

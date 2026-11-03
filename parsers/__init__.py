@@ -1,6 +1,7 @@
 import re
 from .nmap_parser import parse_nmap
 from .nuclei_parser import parse_nuclei
+from .ssl_parser import parse_testssl, parse_sslscan
 from .generic_parser import parse_generic_content
 
 def parse_web_discovery(content: str) -> str:
@@ -33,8 +34,11 @@ def clean_and_parse_tool_data(tool_name: str, content: str) -> str:
         return parse_nmap(content)
     elif "nuclei" in t_name:
         return parse_nuclei(content)
+    elif "testssl" in t_name:
+        return parse_testssl(content)
+    elif "sslscan" in t_name:
+        return parse_sslscan(content)
     elif any(fuzz in t_name for fuzz in ("gobuster", "ffuf", "dirsearch", "dirb", "feroxbuster")):
         return parse_web_discovery(content)
     else:
         return parse_generic_content(content)
-

@@ -78,7 +78,12 @@ class TriageEngine:
 
     def execute_correlation(self, master_tool_data: dict, report_title: str, user_query: str = "") -> str:
         formatted_payload = ""
-        MAX_CHARS_PER_TOOL = 35000  # Presupuesto inteligente por herramienta (reemplaza el corte ciego de 5000 chars)
+        # Presupuesto adaptativo: Groq tiene un límite estricto de 6,000 TPM en capa gratuita;
+        # Gemini y OpenRouter admiten ventanas masivas de tokens.
+        if self.provider == "groq":
+            MAX_CHARS_PER_TOOL = 3500
+        else:
+            MAX_CHARS_PER_TOOL = 35000
 
         for tool_name, content in master_tool_data.items():
             cleaned_lines = []
@@ -91,11 +96,14 @@ class TriageEngine:
             
             # Truncamiento inteligente preservando cabecera y cierre si excede el presupuesto
             if len(compact_content) > MAX_CHARS_PER_TOOL:
-                head_part = compact_content[:25000]
-                tail_part = compact_content[-7000:]
+                head_len = int(MAX_CHARS_PER_TOOL * 0.70)
+                tail_len = int(MAX_CHARS_PER_TOOL * 0.25)
+                head_part = compact_content[:head_len]
+                tail_part = compact_content[-tail_len:]
+                omitted = len(compact_content) - (head_len + tail_len)
                 compact_content = (
                     f"{head_part}\n\n"
-                    f"[... NOTA: Contenido extenso pre-filtrado. Omitido bloque intermedio repetitivo ({len(compact_content) - 32000} caracteres) para preservar contexto ...]\n\n"
+                    f"[... NOTA: Contenido extenso pre-filtrado ({omitted} caracteres omitidos) para respetar cuota de tokens ...]\n\n"
                     f"{tail_part}"
                 )
 
