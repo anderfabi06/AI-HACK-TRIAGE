@@ -114,21 +114,26 @@ class TriageEngine:
             "Eres un Analista Senior de Ciberseguridad e Infraestructura (Zero-Execution Triage Engine).\n"
             "Tu misión es sintetizar artefactos y evidencias técnicas recolectadas para entregar un informe\n"
             "riguroso, conciso y de alto impacto, apto para ser presentado tanto a líderes técnicos como a gerencia.\n\n"
-            "REGLAS DE SÍNTESIS Y ESTILO:\n"
-            "1. Menos secciones dispersas, mayor densidad y síntesis técnica. Cero texto de relleno.\n"
-            "2. Nunca uses títulos informales o condescendientes (prohibido usar frases como 'sección para jefes').\n"
-            "3. La postura general debe transmitir con precisión el riesgo operativo del activo/perímetro.\n"
-            "4. En la validación táctica, incluye comandos concretos (curl, nmap, openssl, etc.) y la regla exacta para descartar falsos positivos.\n"
-            "5. CONSISTENCIA ESTRICTA DE SEVERIDAD:\n"
-            "   - La severidad asignada a un hallazgo en la Matriz (ej. MEDIUM) debe mantenerse coherente en todo el documento. Queda estrictamente prohibido contradecirte (ej. clasificar un hallazgo como MEDIUM en la tabla y luego llamarlo 'Prioridad Alta' en otro lado).\n"
-            "   - NO agregues tablas o anexos adicionales al final (como 'Resumen de Prioridades'). El documento concluye de manera limpia y formal tras la Sección 3.\n"
-            "6. CITAS Y REFERENCIAS TÉCNICAS VERIFICABLES:\n"
-            "   - Cuando menciones scripts, exploits o PoCs existentes (ej. scripts de prueba, repositorios o herramientas externas), DEBES especificar el autor, el repositorio de procedencia (ej. GitHub o advisory oficial) y el CVE/RFC exacto. NUNCA menciones nombres genéricos como 'script breach.py disponible' sin indicar autoría o fuente.\n\n"
+            "REGLAS CRÍTICAS DE CALIDAD Y ENFOQUE METODOLÓGICO:\n"
+            "1. PROTOCOLO DE VALIDACIÓN FUNDAMENTADA PARA CVES Y VULNERABILIDADES VERIFICABLES:\n"
+            "   - Cuando se identifique un CVE o vulnerabilidad técnica confirmable (ej. BREACH, inyecciones, fallos de compresión, desbordamientos o malas configuraciones):\n"
+            "     * Explica el MECANISMO TÉCNICO: qué componente, cabecera o función provoca el fallo.\n"
+            "     * Proporciona una PRUEBA DE CONCEPTO SEGURA (Safe / Non-destructive PoC): explica qué enviar tácticamente con la herramienta sugerida (curl, Burp Suite, OpenSSL) para comprobar la existencia de la falla sin riesgo de causar caídas de servicio (DoS) ni daño a los datos.\n"
+            "     * Define el CRITERIO DE VEREDICTO con fundamentos dobles:\n"
+            "       - Señal de Confirmación: Qué respuesta exacta (firma, cabecera, error controlado o código) demuestra que el CVE es real.\n"
+            "       - Señal de Descarte: Qué respuesta (bloqueo de WAF 403, mensaje sanitizado 400, o respuesta neutral) demuestra que es un falso positivo o está mitigado.\n"
+            "2. ENFOQUE PROCEDIMENTAL (Cero comandos frágiles de una línea):\n"
+            "   - En lugar de forzar comandos bash de una línea propensos a fallar por WAFs o comillas, enseña al analista CÓMO realizar la prueba con la herramienta adecuada.\n"
+            "3. CERO ALUCINACIONES DE CVES O REPOSITORIOS FICTICIOS:\n"
+            "   - Queda TERMINANTEMENTE PROHIBIDO inventar CVEs inexistentes o URLs de GitHub ficticias.\n"
+            "   - Si la evidencia de los escaneos solo detectó un banner de versión (ej. `nginx/1.31.8`), repórtalo como 'Divulgación de Información / Banner Grabbing' (CWE-200 / MITRE T1082), no inventes vulnerabilidades críticas no confirmadas.\n"
+            "4. CONSISTENCIA ESTRICTA DE SEVERIDAD:\n"
+            "   - La severidad de la Matriz (ej. MEDIUM) debe respetarse en todo el texto. NO agregues tablas extra al final. El reporte concluye en la Sección 3.\n\n"
             "MARCO DE SEVERIDAD:\n"
             "- CRITICAL: RCE confirmado, bypass perimetral, exposición directa de bases de datos/secretos maestros.\n"
             "- HIGH: BOLA/IDOR, inyecciones confirmadas, servicios críticos de administración expuestos a internet (RDP, SMB, DBs, K8s).\n"
-            "- MEDIUM: Versiones con CVEs sin PoC trivial inmediata, falta de hardening, cifrados obsoletos.\n"
-            "- LOW / INFO: Información descriptiva, cabeceras de cabecera menores sin impacto explotable."
+            "- MEDIUM: Versiones con CVEs confirmados sin PoC trivial inmediata, falta de hardening, compresión vulnerable (BREACH), certificados wildcard en SaaS.\n"
+            "- LOW / INFO: Información descriptiva, divulgación de banners de versión, cabeceras de seguridad menores ausentes."
         )
 
         prompt = f"""
@@ -150,15 +155,18 @@ class TriageEngine:
         Presenta una única tabla integral cruzando activos, herramientas y frameworks:
         | ID | Activo / Servicio | Hallazgo Técnico | Evidencia Cruzada | MITRE ATT&CK | Explotabilidad / KEV | Severidad |
 
-        ## 3. Plan de Validación Táctica, Descarte de Falsos Positivos y Remediación
+        ## 3. Metodología de Validación Táctica, Criterios de Descarte y Remediación
         Para cada hallazgo relevante de la matriz (o grupo de hallazgos relacionados):
 
-        ### [ID] - [Nombre del Hallazgo / Vulnerabilidad]
-        - **Impacto Real:** (Riesgo operativo o técnico si es explotado, en 1 o 2 líneas).
-        - **Referencias Técnicas & Fuentes:** (CVE oficial, autor de la investigación / paper y enlace o repositorio GitHub verificable del exploit/PoC).
-        - **Prueba de Descarte (Comando / Acción):** (Comando exacto con curl, nmap NSE, openssl u otra herramienta para verificar en frío).
-        - **Criterio de Veredicto:** (Cómo confirmar la vulnerabilidad vs cómo descartarla como falso positivo en 1 línea).
-        - **Acción Correctiva:** (Qué configuración, parche o regla de firewall aplicar puntualmente).
+        ### [ID] - [Nombre del Hallazgo / CVE]
+        - **Mecanismo Técnico & Impacto:** (En qué consiste la falla a nivel de protocolo/software y qué riesgo real representa en 1 o 2 líneas).
+        - **Referencias Oficiales:** (CVE-ID, CWE, o boletín oficial de seguridad).
+        - **Herramienta Sugerida:** (ej. curl, Burp Suite Repeater, OpenSSL s_client, Nmap NSE, dig).
+        - **Validación Segura (PoC de Detección No Destructiva):** (Qué petición exacta, cabeceras o valores controlados enviar para comprobar la existencia del fallo sin arriesgar la disponibilidad).
+        - **Criterio de Veredicto Fundamentado:**
+          * *Confirmación:* (Respuesta, cabecera o comportamiento específico del servidor que demuestra con certeza técnica que la vulnerabilidad existe).
+          * *Descarte (Falso Positivo / Mitigado):* (Respuesta del servidor o WAF que demuestra que el ataque fue neutralizado o el servicio no es vulnerable).
+        - **Remediación Oficial:** (Versión mínima parcheada o directiva de configuración recomendada por el fabricante).
 
         [DATOS RECOLECTADOS DE LAS HERRAMIENTAS GUARDADAS POR EL ANALISTA]
         {formatted_payload}
