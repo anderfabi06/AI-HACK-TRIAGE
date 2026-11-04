@@ -44,8 +44,9 @@ def clean_and_parse_tool_data(tool_name: str, content: str) -> str:
         return parse_sslscan(content)
     elif "nikto" in t_name:
         return parse_nikto(content)
-    elif "ffuf" in t_name:
-        return parse_ffuf(content)
+    elif "httpx" in t_name:
+        from .httpx_parser import parse_httpx
+        return parse_httpx(content)
     elif "whatweb" in t_name:
         return parse_whatweb(content)
     elif "katana" in t_name:
