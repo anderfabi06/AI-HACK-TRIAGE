@@ -7,220 +7,171 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from core.triage_engine import TriageEngine
 
-class MockEpistemicEngine(TriageEngine):
+class MockOperationalEngine(TriageEngine):
     """
-    Subclase controlada que implementa la lógica de evaluación y segregación en 3 bloques
-    (Inventario, Observaciones, Hallazgos Confirmados) sin dependencias de red externas.
+    Subclase controlada que implementa la lógica de auditoría técnica y triaje operativo
+    (SOC Senior) con las 5 columnas obligatorias y separación de ruido frontend.
     """
     def __init__(self):
         super().__init__(provider="mock")
 
     def execute_correlation(self, master_tool_data: dict, report_title: str, user_query: str = "") -> str:
         lines = [
-            f"# INFORME DE AUDITORÍA Y CORRELACIÓN DE EVIDENCIAS: {report_title}",
+            f"# INFORME DE AUDITORÍA TÉCNICA Y TRIAJE OPERATIVO: {report_title}",
             "",
-            "## 1. Postura General y Resumen Epistémico",
-            "- **Superficie de Exposición Analizada:** Servicios y activos auditados.",
-            "- **Control de Ruido y Calidad de Telemetría:** Análisis de correlación y corroboraciones dependientes."
+            "## 1. Resumen Perimetral y Ruido de Frontend Descartado",
+            "- **Servicios e Infraestructura Base:** Host target.com con puertos 80/443 activos (Nginx/Cloudflare).",
+            "- **Ruido Frontend Descartado:** Se descartaron 24 archivos estáticos (.js, .css, webpack bundles y chunks) detectados por Katana/FFUF al tratarse de un comportamiento normal de cliente."
         ]
 
-        inventory_items = []
-        observations = []
-        findings = []
+        matrix_rows = []
+        detailed_findings = []
 
-        # 1. Análisis de Inventario (Puertos, Servicios, Tecnologías, Certificados)
-        if "nmap" in master_tool_data:
-            nmap_txt = master_tool_data["nmap"]
-            if "443/tcp open" in nmap_txt or "80/tcp open" in nmap_txt:
-                inventory_items.append("| INV-1 | target.com:443 | Puerto HTTPS y Servidor Web | Nmap [scan.txt] | Complementariedad | 443/tcp open ssl/http |")
-            if "8080" in nmap_txt and "httpx" in master_tool_data and "refused" in master_tool_data["httpx"].lower():
-                observations.append("| OBS-1 | target.com:8080 | Puerto 8080 reportado abierto pero inaccesible | Nmap, HTTPX | Contradicción | NOT_ASSESSED | BAJA | Discrepancia de accesibilidad entre herramientas |")
+        # Caso 1: Ruido frontend puro (Katana/FFUF)
+        # Se descarta en sección 1, no entra a la matriz como hallazgo
 
-        if "whatweb" in master_tool_data:
-            whatweb_txt = master_tool_data["whatweb"]
-            if "Apache" in whatweb_txt or "nginx" in whatweb_txt:
-                inventory_items.append("| INV-2 | target.com | Tecnologías web (Nginx/Apache) | WhatWeb [whatweb.txt] | Corroboración dependiente | Banner de servidor web detectado |")
+        # Caso 2: Exposición de archivo sensible .env con datos
+        if "nuclei" in master_tool_data and "DB_PASSWORD" in master_tool_data["nuclei"]:
+            matrix_rows.append(
+                "| H-01: Exposición de .env con Credenciales | Burp Suite Repeater | "
+                "Enviar petición GET a /.env verificando que el Content-Type sea texto plano y contenga asignaciones de variables de entorno reales en vez de página de error 404 personalizada de SPA. | "
+                "Crítico | Exposición directa de credenciales maestras de base de datos en texto plano. |"
+            )
+            detailed_findings.append({
+                "id": "H-01",
+                "title": "Exposición de .env con Credenciales",
+                "evidence": "GET /.env -> Status 200 OK con cadena DB_PASSWORD=secret_root_pass [Fuente: Nuclei]",
+                "tool": "Burp Suite Repeater",
+                "method": "Verificar con proxy que la respuesta sea el archivo de configuración genuino y no una redirección a login o HTML genérico 200.",
+                "confirm": "Respuesta con MIME text/plain conteniendo pares CLAVE=VALOR de infraestructura.",
+                "discard": "Respuesta que devuelva HTML del frontend con código 200 (comportamiento típico de SPA de enrutamiento) o bloqueo 403.",
+                "severity": "Crítico",
+                "impact": "Compromiso de acceso a datos centrales de la organización."
+            })
 
-        if "nuclei" in master_tool_data:
-            nuclei_txt = master_tool_data["nuclei"]
-            if "wildcard-tls" in nuclei_txt or "wildcard-dns" in nuclei_txt:
-                inventory_items.append("| INV-3 | *.target.com | Certificado / Resolución Wildcard | Nuclei [nuclei.json] | Inventario descriptivo | Configuración estándar de proveedor PaaS/CDN |")
-            if "missing-security-headers" in nuclei_txt:
-                observations.append("| OBS-2 | target.com | Ausencia de cabeceras CSP / X-Frame-Options | Nuclei [nuclei.json] | Alerta aislada | LOW | MEDIA | Buenas prácticas de hardening; sin impacto directo demostrado |")
-            if "env-file-exposed" in nuclei_txt and "DB_PASSWORD" in nuclei_txt:
-                findings.append({
-                    "id": "SEC-01",
-                    "title": "Exposición de Archivo de Configuración (.env) con Credenciales",
-                    "asset": "target.com/.env",
-                    "desc": "Archivo sensible de variables de entorno accesible públicamente con credenciales de base de datos legibles.",
-                    "evidence": "Status: 200 OK, Body: DB_PASSWORD=secret_root_pass [Fuente: Nuclei - nuclei.json]",
-                    "tools": "Nuclei, HTTPX",
-                    "correlacion": "CORROBORACIÓN_INDEPENDIENTE",
-                    "impact": "Exposición directa de secretos maestros de infraestructura (Pérdida Crítica de Confidencialidad)",
-                    "validation": "CONFIRMED_FINDING",
-                    "severity": "CRITICAL",
-                    "confidence": "ALTA"
-                })
-
-        if "testssl" in master_tool_data:
-            testssl_txt = master_tool_data["testssl"]
-            if "BREACH" in testssl_txt or "deflate" in testssl_txt or "gzip" in testssl_txt:
-                observations.append("| OBS-3 | target.com | Compresión HTTP sobre TLS activa (Potencial BREACH) | TestSSL [testssl.txt] | Alerta unifuente | NOT_ASSESSED | BAJA | No se evidencia endpoint con secretos y parámetros reflejados en los logs |")
-
-        lines.extend([
-            f"- **Métricas Consolidadas:**",
-            f"  - Activos/Servicios en Inventario: {len(inventory_items)}",
-            f"  - Observaciones de Seguridad / Potenciales: {len(observations)}",
-            f"  - Hallazgos de Seguridad Confirmados: {len(findings)}",
-            "",
-            "---",
-            "",
-            "## BLOQUE A: Inventario y Superficie de Ataque",
-            "| ID_INV | Activo / Endpoint | Elemento Descriptivo | Fuentes Primarias | Tipo de Correlación | Detalle Técnico Observable |",
-            "|--------|-------------------|----------------------|-------------------|---------------------|----------------------------|"
-        ])
-        if inventory_items:
-            lines.extend(inventory_items)
-        else:
-            lines.append("| INV-0 | N/A | Sin elementos de inventario registrados | N/A | N/A | N/A |")
+        # Caso 3: Compresión HTTP (gzip/deflate)
+        if "testssl" in master_tool_data and "gzip" in master_tool_data["testssl"].lower():
+            matrix_rows.append(
+                "| H-02: Compresión HTTP Activa (Potencial BREACH) | DevTools de Navegador / Burp | "
+                "Inspeccionar si los endpoints dinámicos que usan compresión reflejan parámetros de entrada junto a tokens CSRF o secretos en el mismo cuerpo HTTP. | "
+                "Bajo | Sin vectores de inyección o secretos reflejados en respuestas comprimidas, el riesgo es nulo. |"
+            )
 
         lines.extend([
             "",
-            "---",
+            "## 2. Matriz de Triaje Técnico y Descarte de Hallazgos",
             "",
-            "## BLOQUE B: Observaciones de Seguridad y Debilidades Potenciales",
-            "| ID_OBS | Activo / Servicio | Condición Observada | Fuentes | Correlación | Severidad Preliminar | Confianza Evidencial | Justificación de la Clasificación |",
-            "|--------|-------------------|---------------------|---------|-------------|----------------------|----------------------|-----------------------------------|"
+            "| ID / Hallazgo | Herramienta Recomendada | Metodología de Descarte Técnico (Criterio Conceptual) | Severidad de Negocio | Riesgo Real / Impacto |",
+            "|---------------|-------------------------|-------------------------------------------------------|----------------------|-----------------------|"
         ])
-        if observations:
-            lines.extend(observations)
+
+        if matrix_rows:
+            lines.extend(matrix_rows)
         else:
-            lines.append("| OBS-0 | N/A | No se identificaron observaciones o configuraciones anómalas | N/A | N/A | NOT_ASSESSED | N/A | N/A |")
+            lines.append("| N/A | N/A | No se identificaron condiciones anómalas ni vulnerabilidades activas en la telemetría provista. | Informativo | Superficie perimetral normal sin alertas de seguridad. |")
 
         lines.extend([
             "",
-            "---",
-            "",
-            "## BLOQUE C: Hallazgos de Seguridad Justificados"
+            "## 3. Metodología de Descarte Técnico y Validación Operativa"
         ])
 
-        if not findings:
-            lines.append("Cero (0) hallazgos de seguridad confirmados en los artefactos provistos.")
+        if not detailed_findings:
+            lines.append("No se registraron anomalías críticas que requieran validación técnica manual.")
         else:
-            for f in findings:
+            for f in detailed_findings:
                 lines.extend([
+                    f"",
                     f"### [{f['id']}] – {f['title']}",
-                    f"- **Activo Afectado:** {f['asset']}",
-                    f"- **Descripción Técnica y Condición Insegura:** {f['desc']}",
-                    f"- **Evidencia Original y Trazabilidad [HECHO]:** {f['evidence']}",
-                    f"- **Herramientas y Fuentes Relacionadas:** {f['tools']}",
-                    f"- **Tipo de Correlación:** {f['correlacion']}",
-                    f"- **Impacto Demostrado (No Hipotético):** {f['impact']}",
-                    f"- **Análisis de Falsos Positivos y Falsabilidad:** Verificado directamente con contenido real devuelto.",
-                    f"- **Información Ausente:** Ninguna brecha para este endpoint; volcado completo comprobado.",
-                    f"- **Estado de Validación:** {f['validation']}",
-                    f"- **Severidad Justificada:** {f['severity']}",
-                    f"- **Nivel de Confianza:** {f['confidence']}",
-                    f"- **Justificación de Clasificación y Severidad:** Exposición directa verificable de credenciales con status 200."
+                    f"- **Evidencia en Logs:** {f['evidence']}",
+                    f"- **Herramienta Recomendada:** {f['tool']}",
+                    f"- **Metodología de Descarte (Criterio Conceptual):** {f['method']}",
+                    f"- **Criterio de Confirmación:** {f['confirm']}",
+                    f"- **Criterio de Descarte (Falso Positivo):** {f['discard']}",
+                    f"- **Severidad de Negocio y Riesgo Real:** {f['severity']} – {f['impact']}"
                 ])
 
         return "\n".join(lines)
 
 
-class TestEpistemicClassificationAndFindings(unittest.TestCase):
+class TestOperationalSOCAuditing(unittest.TestCase):
     """
-    Batería de pruebas para la segregación en 3 bloques, criterio estricto de hallazgos
-    y ausencia de vulnerabilidades artificiales.
+    Verifica el cumplimiento de las 4 Reglas de Oro operativas:
+    1. Cero relleno académico (sin jerga abstracta).
+    2. Enfoque de herramienta y metodología conceptual (cero comandos exactos).
+    3. Separación y descarte de ruido frontend.
+    4. Tabla con las 5 columnas obligatorias y severidad de negocio.
     """
 
     def setUp(self):
-        self.engine = MockEpistemicEngine()
+        self.engine = MockOperationalEngine()
 
-    def test_pure_inventory_results_in_zero_confirmed_findings(self):
-        """
-        Escenario 1: Un escaneo puramente descriptivo (puertos abiertos, tecnologías, certificados)
-        DEBE generar exactamente CERO hallazgos confirmados en el Bloque C.
-        """
-        pure_inventory_data = {
-            "nmap": "Starting Nmap\nPORT 443/tcp open ssl/http Apache\nPORT 80/tcp open http",
-            "whatweb": "https://target.com [200 OK] Apache[2.4.52], HTTPServer[Ubuntu]",
-            "nuclei": '{"template-id": "wildcard-tls", "info": {"name": "Wildcard TLS Certificate", "severity": "info"}}'
-        }
-        report = self.engine.execute_correlation(pure_inventory_data, "Target Limpio")
-
-        # Verificaciones críticas
-        self.assertIn("## BLOQUE A: Inventario y Superficie de Ataque", report)
-        self.assertIn("INV-1", report)
-        self.assertIn("INV-2", report)
-        self.assertIn("INV-3", report)
-        self.assertIn("Cero (0) hallazgos de seguridad confirmados", report)
-        self.assertIn("Hallazgos de Seguridad Confirmados: 0", report)
-
-    def test_dependent_correlation_not_counted_as_independent(self):
-        """
-        Escenario 2: Varias herramientas leyendo el mismo banner de servidor
-        se clasifican como corroboración dependiente en el inventario.
-        """
-        sample_data = {
-            "whatweb": "https://target.com [200 OK] HTTPServer[nginx/1.24.0]"
-        }
-        report = self.engine.execute_correlation(sample_data, "Test Dependencia")
-        self.assertIn("Corroboración dependiente", report)
-        self.assertNotIn("CONFIRMED_FINDING", report)
-
-    def test_security_observation_not_elevated_to_vulnerability(self):
-        """
-        Escenario 3: Headers de seguridad faltantes o compresión activa sin secretos
-        van al Bloque B como SECURITY OBSERVATION y no como vulnerabilidad confirmada.
-        """
-        sample_data = {
-            "nuclei": '{"template-id": "missing-security-headers", "info": {"name": "Missing Headers", "severity": "low"}}',
-            "testssl": "BREACH (HTTP compression deflate) - potential"
-        }
-        report = self.engine.execute_correlation(sample_data, "Test Observaciones")
-        
-        self.assertIn("## BLOQUE B: Observaciones de Seguridad", report)
-        self.assertIn("OBS-2", report)
-        self.assertIn("OBS-3", report)
-        self.assertIn("NOT_ASSESSED", report)
-        self.assertIn("Cero (0) hallazgos de seguridad confirmados", report)
-
-    def test_confirmed_finding_with_direct_evidence(self):
-        """
-        Escenario 4: Un archivo .env con credenciales legibles y status 200 en log
-        se clasifica legítimamente en el Bloque C como CONFIRMED_FINDING con severidad justificada.
-        """
-        vulnerable_data = {
-            "nuclei": '{"template-id": "env-file-exposed", "info": {"name": "Env File Exposed", "severity": "critical"}, "extracted-results": ["DB_PASSWORD=secret_root_pass"]}'
-        }
-        report = self.engine.execute_correlation(vulnerable_data, "Target Vulnerable")
-
-        self.assertIn("## BLOQUE C: Hallazgos de Seguridad Justificados", report)
-        self.assertIn("[SEC-01] – Exposición de Archivo de Configuración (.env)", report)
-        self.assertIn("CONFIRMED_FINDING", report)
-        self.assertIn("CRITICAL", report)
-        self.assertIn("ALTA", report)
-        self.assertIn("CORROBORACIÓN_INDEPENDIENTE", report)
-
-    def test_system_instruction_strictly_contains_new_principles(self):
-        """
-        Verifica que el archivo real triage_engine.py contenga explícitamente las directivas
-        del principio fundamental, los 3 bloques, NOT_ASSESSED y la no-elevación artificial.
-        """
+    def test_zero_academic_filler_and_clean_directness(self):
+        """Verifica que el prompt y sistema prohíban jerga teórica abstracta."""
         real_engine = TriageEngine(provider="gemini")
         import inspect
         src = inspect.getsource(real_engine.execute_correlation)
 
-        self.assertIn("NO TODO RESULTADO DE UNA HERRAMIENTA CONSTITUYE UN HALLAZGO", src)
-        self.assertIn("INFORMATIONAL / INVENTORY", src)
-        self.assertIn("SECURITY OBSERVATION", src)
-        self.assertIn("POTENTIAL FINDING", src)
-        self.assertIn("CONFIRMED FINDING", src)
-        self.assertIn("CORROBORACIÓN_DEPENDIENTE", src)
-        self.assertIn("NOT_ASSESSED", src)
-        self.assertIn("BLOQUE A: Inventario", src)
-        self.assertIn("BLOQUE B: Observaciones", src)
-        self.assertIn("BLOQUE C: Hallazgos", src)
+        # Regla 1: Prohibición explícita de jerga abstracta
+        self.assertIn("CERO RELLENO ACADÉMICO", src)
+        self.assertIn("resumen epistémico", src)
+        self.assertIn("corroboración dependiente", src)
+        self.assertIn("Ingeniero de Ciberseguridad Operativa", src)
+
+    def test_mandatory_five_columns_in_matrix(self):
+        """Verifica que la tabla de la Sección 2 incluya exactamente las 5 columnas obligatorias."""
+        real_engine = TriageEngine(provider="gemini")
+        import inspect
+        src = inspect.getsource(real_engine.execute_correlation)
+
+        required_columns = [
+            "ID / Hallazgo",
+            "Herramienta Recomendada",
+            "Metodología de Descarte Técnico (Criterio Conceptual)",
+            "Severidad de Negocio",
+            "Riesgo Real / Impacto"
+        ]
+        for col in required_columns:
+            self.assertIn(col, src, f"Falta la columna obligatoria: {col}")
+
+    def test_frontend_noise_discarded_cleanly(self):
+        """Verifica que los archivos estáticos de frontend se descarten como comportamiento normal."""
+        synthetic_data = {
+            "katana": "https://target.com/app.bundle.js\nhttps://target.com/style.chunk.css",
+            "nmap": "443/tcp open ssl/http"
+        }
+        report = self.engine.execute_correlation(synthetic_data, "Test Frontend Noise")
+
+        self.assertIn("Ruido Frontend Descartado", report)
+        self.assertIn(".js", report)
+        self.assertIn("comportamiento normal", report.lower())
+
+    def test_operational_methodology_without_raw_commands(self):
+        """Verifica que se brinde metodología conceptual sin comandos de consola ejecutables."""
+        synthetic_data = {
+            "nuclei": '{"template-id": "env-file-exposed", "extracted-results": ["DB_PASSWORD=secret_root_pass"]}'
+        }
+        report = self.engine.execute_correlation(synthetic_data, "Test Metodología")
+
+        self.assertIn("Herramienta Recomendada", report)
+        self.assertIn("Metodología de Descarte Técnico", report)
+        self.assertIn("Burp Suite Repeater", report)
+
+        # Prohibición de comandos
+        forbidden_commands = [r"\bcurl\s+-", r"\bbash\b", r"\bsh\s+-", r"\bcat\s+"]
+        for cmd in forbidden_commands:
+            self.assertIsNone(re.search(cmd, report, re.IGNORECASE))
+
+    def test_business_severity_scale(self):
+        """Verifica la asignación de severidad de negocio (Crítico, Alto, Medio, Bajo, Informativo)."""
+        real_engine = TriageEngine(provider="gemini")
+        import inspect
+        src = inspect.getsource(real_engine.execute_correlation)
+
+        self.assertIn("Crítico", src)
+        self.assertIn("Alto", src)
+        self.assertIn("Medio", src)
+        self.assertIn("Bajo", src)
+        self.assertIn("Informativo", src)
 
 
 if __name__ == "__main__":

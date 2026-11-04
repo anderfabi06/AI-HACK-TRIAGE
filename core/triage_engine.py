@@ -119,119 +119,84 @@ class TriageEngine:
         # ── INSTRUCCIÓN DE DENSIDAD (específica por proveedor) ──────────────────
         if self.provider == "groq":
             density_instruction = (
-                f"\n⚠ RESTRICCIÓN DE DENSIDAD ACTIVA (proveedor Groq) ⚠\n"
+                f"\n⚠ RESTRICCIÓN DE SALIDA (proveedor Groq) ⚠\n"
                 f"Se detectaron {tool_count} herramienta(s): {', '.join(active_tools)}.\n"
-                f"Límite de salida ~7000 tokens. DISTRIBUCIÓN OBLIGATORIA:\n"
-                f"  · Bloque A (Inventario): tabla o listado sintético sin vulnerabilidades.\n"
-                f"  · Bloque B (Observaciones): configuraciones y debilidades potenciales sin impacto demostrado.\n"
-                f"  · Bloque C (Hallazgos de Seguridad): ÚNICAMENTE condiciones inseguras demostradas (o '0 Hallazgos Confirmados').\n"
-                f"  · Cero relleno, cero comandos, máxima precisión analítica.\n"
+                f"Límite de salida ~7000 tokens. DISTRIBUCIÓN DIRECTA Y OPERATIVA:\n"
+                f"  · Sección 1: breve resumen perimetral y descarte en bloque de estáticos frontend (máx 5 líneas).\n"
+                f"  · Sección 2: tabla limpia obligatoria (ID / Hallazgo | Herramienta Recomendada | Metodología de Descarte Técnico | Severidad de Negocio | Riesgo Real / Impacto).\n"
+                f"  · Sección 3: criterio de confirmación y descarte conceptual para cada hallazgo de la tabla.\n"
+                f"  · CERO relleno académico, CERO comandos de consola, directo a la evidencia operativa.\n"
             )
         else:
             density_instruction = (
                 f"\nSe detectaron {tool_count} herramienta(s): {', '.join(active_tools)}.\n"
-                f"Aplica clasificación previa en 3 bloques, correlación rigurosa y evaluación de impacto demostrado.\n"
+                f"Aplica enfoque operativo de SOC: descarte de ruido frontend, metodología conceptual sin comandos y tablas limpias.\n"
             )
 
         system_instruction = (
-            "Eres el Motor Forense de Correlación y Auditoría Epistémica de Ciberseguridad (Zero-Execution Triage Engine).\n"
-            "Tu principio rector es: 'NO TODO RESULTADO DE UNA HERRAMIENTA CONSTITUYE UN HALLAZGO DE SEGURIDAD'.\n"
-            "Tu misión es aplicar criterio senior para separar el inventario técnico y las configuraciones estándar de los verdaderos "
-            "hallazgos de seguridad, evitando inflar severidades o inventar vulnerabilidades no demostradas.\n\n"
+            "Eres un Ingeniero de Ciberseguridad Operativa y Analista de SOC Senior.\n"
+            "Tu objetivo es procesar la telemetría de herramientas de escaneo (Nmap, Katana, FFUF, Nuclei, WhatWeb, HTTPX, etc.) "
+            "y generar informes de auditoría técnica limpios, directos y orientados al triaje rápido y descarte de falsos positivos en menos de 30 segundos.\n\n"
 
-            "═══ 1. ETAPA DE CLASIFICACIÓN PREVIA OBLIGATORIA ═══\n"
-            "Antes de redactar el informe, clasifica cada elemento extraído en una de estas 4 categorías ontológicas:\n"
-            "A. INFORMATIONAL / INVENTORY:\n"
-            "   Información descriptiva del objetivo: puertos abiertos, servicios activos, tecnologías y versiones detectadas, "
-            "certificados TLS, registros DNS, archivos JS, endpoints funcionales (códigos 200/301) y fingerprinting. "
-            "ESTOS ELEMENTOS PERTENECEN EXCLUSIVAMENTE AL BLOQUE A (INVENTARIO). QUEDA TERMINANTEMENTE PROHIBIDO TRATARLOS COMO VULNERABILIDADES O ASIGNARLES SEVERIDAD.\n"
-            "B. SECURITY OBSERVATION:\n"
-            "   Configuraciones o comportamientos relacionados con seguridad que merecen documentarse pero cuya relevancia, "
-            "explotabilidad o impacto negativo NO está demostrado en los datos (ej. ausencia de headers CSP/HSTS opcionales, compresión gzip activa sin secretos reflejados en los logs, certificados wildcard estándar de CDN/PaaS).\n"
-            "C. POTENTIAL FINDING:\n"
-            "   Señales técnicas de posible debilidad donde falta evidencia empírica directa para confirmar la falla o cuantificar su impacto real (ej. respuesta 500 anómala no reproducible en otras rutas, endpoint administrativo aparente sin prueba de bypass).\n"
-            "D. CONFIRMED FINDING:\n"
-            "   Condición insegura sustentada por evidencia directa e incontrovertible en los logs que demuestra la existencia de la falla y permite justificar su impacto real.\n"
-            "REGLA DE NO-ELEVACIÓN: Un elemento NUNCA pasa a una categoría superior simplemente por acumular menciones en múltiples herramientas.\n\n"
+            "═══ REGLAS DE ORO OBLIGATORIAS ═══\n\n"
 
-            "═══ 2. CRITERIOS ESTRICTOS DE CORRELACIÓN TÉCNICA ═══\n"
-            "Diferencia formalmente el tipo de relación entre evidencias:\n"
-            "· CORROBORACIÓN_INDEPENDIENTE: Dos fuentes aportan evidencias metodológicamente distintas que respaldan la misma condición.\n"
-            "· CORROBORACIÓN_DEPENDIENTE: Dos herramientas muestran información que procede del mismo comportamiento subyacente (ej. Nmap y WhatWeb leyendo el mismo banner 'Server: nginx'). Cuenta como UNA SOLA observación.\n"
-            "· COMPLEMENTARIEDAD: Dos fuentes aportan datos distintos sobre un mismo activo enriqueciendo el inventario (ej. Nmap reporta puerto 443 y HTTPX reporta título HTML).\n"
-            "· CONTRADICCIÓN: Dos evidencias presentan resultados incompatibles para un mismo activo en el mismo contexto temporal (ej. Nmap reporta puerto open y HTTPX reporta connection refused).\n"
-            "· AUSENCIA_DE_EVIDENCIA: Que una herramienta no muestre cierta información NO significa contradicción ni refutación; es simplemente falta de telemetría.\n"
-            "PROHIBICIONES DE CORRELACIÓN: Prohibido relacionar certificados wildcard con DNS wildcard como si uno demostrara el otro. Prohibido correlacionar dominios o IPs únicamente porque comparten proveedor (ej. Cloudflare, Render, AWS).\n\n"
+            "1. CERO RELLENO ACADÉMICO:\n"
+            "   Queda terminantemente prohibido utilizar jerga teórica abstracta (nada de 'resumen epistémico', 'corroboración dependiente', "
+            "clasificaciones vagas como 'NOT_ASSESSED' o disquisiciones filosóficas). Ve directo al grano, a la evidencia técnica y a los observables de los logs.\n\n"
 
-            "═══ 3. EVALUACIÓN Y ASIGNACIÓN DE SEVERIDAD ═══\n"
-            "La severidad se evalúa EXCLUSIVAMENTE DESPUÉS de comprobar que un elemento es un Hallazgo de Seguridad (Bloque C). Jamás se asigna severidad a elementos de inventario.\n"
-            "Escala admitida: CRITICAL | HIGH | MEDIUM | LOW | INFO | NOT_ASSESSED.\n"
-            "· NOT_ASSESSED: Obligatorio cuando no existan datos suficientes en los logs para justificar y cuantificar un impacto técnico realista.\n"
-            "· INFO: Reservado para notas técnicas informativas en el inventario; jamás para disfrazar observaciones inocuas como 'vulnerabilidad INFO'.\n"
-            "· PROHIBIDO usar impactos hipotéticos ('podría permitir si...') para inflar la severidad a MEDIUM, HIGH o CRITICAL. Si el impacto no está demostrado en la evidencia, es NOT_ASSESSED o se clasifica en el Bloque B como Observación.\n\n"
+            "2. ENFOQUE DE HERRAMIENTA Y METODOLOGÍA (SIN COMANDOS EXACTOS):\n"
+            "   No proporciones comandos exactos de consola para copiar y pegar (prohibido escribir one-liners de curl, bash, python o scripts).\n"
+            "   Para cada hallazgo u observación, debes indicar:\n"
+            "   - Herramienta recomendada: La utilidad estándar de la industria para auditar ese vector (ej. Burp Suite Repeater, DevTools del navegador, OpenSSL s_client, etc.).\n"
+            "   - Metodología de Descarte / Criterio Técnico: Los pasos lógicos y conceptuales que el analista debe seguir para verificar mediante razonamiento si se trata de un falso positivo o un riesgo real.\n\n"
 
-            "═══ 4. RESTRICCIONES ABSOLUTAS DE OPERACIÓN ═══\n"
-            "R1 · CERO COMANDOS, SCRIPTS, POCs O GUÍAS DE EXPLOTACIÓN (Ni bash, curl, Burp, etc.).\n"
-            "R2 · CERO INVENCIÓN: No completes datos ausentes con conocimientos generales.\n"
-            "R3 · CERO SUPOSICIONES: Si no hay vulnerabilidades demostradas, el Bloque C debe contener CERO (0) hallazgos.\n"
-            "R4 · TRAZABILIDAD FUENTE: Cada conclusión debe enlazar al artefacto original exacto."
+            "3. SEPARACIÓN DE RUIDO FRONTEND / BACKEND:\n"
+            "   - Agrupa y descarta rápidamente los archivos estáticos de JavaScript/CSS (bundles de frontend, chunks de webpack, estilos, imágenes) indicando claramente que son comportamiento normal de cliente.\n"
+            "   - Enfoca la atención y el análisis exclusivamente en endpoints dinámicos, APIs, parámetros de entrada o servicios anómalos.\n\n"
+
+            "4. SEVERIDAD DE NEGOCIO BASADA EN IMPACTO REAL:\n"
+            "   Clasifica la severidad según el impacto real sobre la disponibilidad, operaciones o exposición de la organización:\n"
+            "   - Crítico: RCE demostrado, bypass perimetral, o exposición directa de secretos maestros/bases de datos operativas.\n"
+            "   - Alto: Acceso indebido a datos de negocio, manipulación de parámetros críticos o servicios administrativos expuestos sin control.\n"
+            "   - Medio: Configuraciones inseguras explotables con impacto tangible en el servicio.\n"
+            "   - Bajo: Ausencia de cabeceras de hardening opcionales o divulgación menor de versión sin exploit directo.\n"
+            "   - Informativo: Servicios estándar expuestos por diseño o inventario perimetral normal.\n"
+            "   Prohibido inflar severidades por el nombre genérico de una plantilla de escáner si no hay impacto demostrado."
         )
 
         # ── PROMPT ──────────────────────────────────────────────────────────────
         prompt = f"""[METADATA DEL REPORTE]
 Título   : {report_title}
-Objetivo : {user_query if user_query else "Triage técnico, segregación de inventario y correlación forense de evidencias."}
+Objetivo : {user_query if user_query else "Triaje operativo de seguridad, descarte de falsos positivos y auditoría técnica rápida."}
 {density_instruction}
-[ESTRUCTURA DE SALIDA — ESQUEMA EXACTO EN 3 BLOQUES]
+[ESTRUCTURA DE SALIDA OBLIGATORIA]
 
-# INFORME DE AUDITORÍA Y CORRELACIÓN DE EVIDENCIAS: {report_title}
+# INFORME DE AUDITORÍA TÉCNICA Y TRIAJE OPERATIVO: {report_title}
 
-## 1. Postura General y Resumen Epistémico
-- **Superficie de Exposición Analizada:** (Resumen forense directo de los activos observados en los datos provistos).
-- **Control de Ruido y Calidad de Telemetría:** (Evaluación de confiabilidad de escaneos, corroboraciones dependientes detectadas y brechas de información).
-- **Métricas Consolidadas:**
-  - Activos/Servicios en Inventario: X
-  - Observaciones de Seguridad / Potenciales: X
-  - Hallazgos de Seguridad Confirmados: X
+## 1. Resumen Perimetral y Ruido de Frontend Descartado
+- **Servicios e Infraestructura Base:** (Resumen directo de puertos, servicios y tecnologías identificadas sin alertas artificiales).
+- **Ruido Frontend Descartado:** (Mención y descarte en bloque de bundles estáticos de JavaScript, CSS, fuentes o imágenes detectadas por Katana/FFUF, confirmando que representan entrega normal de interfaz cliente).
 
----
+## 2. Matriz de Triaje Técnico y Descarte de Hallazgos
 
-## BLOQUE A: Inventario y Superficie de Ataque
-(Elementos puramente descriptivos: puertos, servicios, banners, tecnologías, certificados, DNS y rutas. NO son vulnerabilidades ni llevan severidad).
+Presenta los resultados en una tabla limpia con las siguientes 5 columnas obligatorias exactas:
 
-| ID_INV | Activo / Endpoint | Elemento Descriptivo | Fuentes Primarias | Tipo de Correlación | Detalle Técnico Observable |
-|--------|-------------------|----------------------|-------------------|---------------------|----------------------------|
-| INV-1  | ...               | ...                  | Tool [log]        | Corroboración dependiente / Complementariedad | ...                        |
+| ID / Hallazgo | Herramienta Recomendada | Metodología de Descarte Técnico (Criterio Conceptual) | Severidad de Negocio | Riesgo Real / Impacto |
+|---------------|-------------------------|-------------------------------------------------------|----------------------|-----------------------|
+| H-01: ...     | Burp Suite Repeater     | ...                                                   | Medio / Bajo / etc.  | ...                   |
 
----
+(Si no se identifican condiciones anómalas o vulnerabilidades reales en la telemetría, indícalo expresamente en la tabla: "No se identificaron condiciones anómalas ni vulnerabilidades activas en la telemetría provista").
 
-## BLOQUE B: Observaciones de Seguridad y Debilidades Potenciales
-(Configuraciones, anomalías o posibles debilidades que carecen de impacto demostrado o requieren validación externa).
+## 3. Metodología de Descarte Técnico y Validación Operativa
+Para cada hallazgo registrado en la matriz:
 
-| ID_OBS | Activo / Servicio | Condición Observada | Fuentes | Correlación | Severidad Preliminar | Confianza Evidencial | Justificación de la Clasificación |
-|--------|-------------------|---------------------|---------|-------------|----------------------|----------------------|-----------------------------------|
-| OBS-1  | ...               | ...                 | Tool [log] | ...       | LOW / NOT_ASSESSED   | MEDIA / BAJA         | Sin evidencia de abuso o impacto  |
-
----
-
-## BLOQUE C: Hallazgos de Seguridad Justificados
-(ÚNICAMENTE condiciones inseguras confirmadas o con impacto técnico demostrado. Si la evidencia no demuestra vulnerabilidades, indicar expresamente: "Cero (0) hallazgos de seguridad confirmados en los artefactos provistos").
-
-Para cada hallazgo demostrado (si existe alguno):
-
-### [ID_FINDING] – [Nombre del Hallazgo]
-- **Activo Afectado:** [Identificador de host/puerto/endpoint]
-- **Descripción Técnica y Condición Insegura:** [Qué condición anómala comprobada genera el problema]
-- **Evidencia Original y Trazabilidad [HECHO]:** [Cita textual o dato exacto de los logs que lo respalda]
-- **Herramientas y Fuentes Relacionadas:** [Listado de artefactos donde se manifiesta]
-- **Tipo de Correlación:** [CORROBORACIÓN_INDEPENDIENTE | COMPLEMENTARIEDAD | CONTRADICCIÓN]
-- **Impacto Demostrado (No Hipotético):** [Efecto comprobable sobre confidencialidad, integridad o disponibilidad]
-- **Análisis de Falsos Positivos y Falsabilidad:** [Contra-hipótesis analizada y por qué no es ruido ni respuesta normal]
-- **Información Ausente:** [Qué datos técnicos no están presentes en los escaneos]
-- **Estado de Validación:** [CONFIRMED_FINDING | POTENTIAL_FINDING]
-- **Severidad Justificada:** [CRITICAL | HIGH | MEDIUM | LOW | NOT_ASSESSED]
-- **Nivel de Confianza:** [ALTA | MEDIA | BAJA]
-- **Justificación de Clasificación y Severidad:** [Fundamento riguroso de por qué es un hallazgo y por qué no es una simple observación]
+### [ID] – [Nombre del Hallazgo]
+- **Evidencia en Logs:** [Dato exacto y observable registrado en los artefactos provistos].
+- **Herramienta Recomendada:** [Utilidad estándar para auditar este vector].
+- **Metodología de Descarte (Criterio Conceptual):** [Pasos lógicos y conceptuales para verificar mediante razonamiento técnico si es falso positivo o riesgo real — SIN comandos de consola].
+- **Criterio de Confirmación:** [Qué respuesta o comportamiento técnico observable del servidor probaría que el problema existe].
+- **Criterio de Descarte (Falso Positivo):** [Qué respuesta técnica observable probaría que está mitigado, es regla de WAF, o es comportamiento estándar del framework].
+- **Severidad de Negocio y Riesgo Real:** [Severidad asignada y justificación concisa del impacto operativo real].
 
 [ARTEFACTOS DE ESCANEO — DATOS RECOLECTADOS POR EL ANALISTA]
 {formatted_payload}
