@@ -172,7 +172,11 @@ def parse_ffuf_text(content: str) -> str:
         output.append(f"\n[Errores del Servidor (Status 500+) - {len(status_errors)} encontrados]")
         output.extend(status_errors[:10])
 
-    return "\n".join(output) if len(output) > 1 else ""
+    if len(output) > 1:
+        return "\n".join(output)
+    elif clean_text and len(clean_text) < 1500:
+        return clean_text
+    return ""
 
 def parse_ffuf(content: str) -> str:
     """Punto de entrada principal para parsear ffuf (tanto en JSON como en texto de consola)."""
@@ -187,19 +191,8 @@ def parse_ffuf(content: str) -> str:
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             parsed_json = parse_ffuf_json(stripped[start_idx:end_idx+1])
             if parsed_json:
-                result = parsed_json
-            else:
-                result = ""
-        else:
-            result = ""
-    else:
-        # Caso 2: Texto CLI
-        result = parse_ffuf_text(content)
+                return parsed_json
 
-    # Truncamiento de seguridad si el output sigue muy grande
-    MAX_OUTPUT = 5000
-    if len(result) > MAX_OUTPUT:
-        omitted = len(result) - MAX_OUTPUT
-        result = result[:MAX_OUTPUT] + f"\n[... NOTA: contenido ffuf truncado ({omitted} caracteres omitidos) ...]"
-    return result
+    # Caso 2: Texto CLI
+    return parse_ffuf_text(content)
 

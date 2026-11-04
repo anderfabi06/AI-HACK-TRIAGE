@@ -4,6 +4,7 @@ from .nuclei_parser import parse_nuclei
 from .ssl_parser import parse_testssl, parse_sslscan
 from .nikto_parser import parse_nikto
 from .ffuf_parser import parse_ffuf
+from .httpx_parser import parse_httpx
 from .whatweb_parser import parse_whatweb
 from .katana_parser import parse_katana
 from .generic_parser import parse_generic_content
@@ -44,8 +45,9 @@ def clean_and_parse_tool_data(tool_name: str, content: str) -> str:
         return parse_sslscan(content)
     elif "nikto" in t_name:
         return parse_nikto(content)
+    elif "ffuf" in t_name:
+        return parse_ffuf(content)
     elif "httpx" in t_name:
-        from .httpx_parser import parse_httpx
         return parse_httpx(content)
     elif "whatweb" in t_name:
         return parse_whatweb(content)

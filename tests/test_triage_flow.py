@@ -183,6 +183,33 @@ def test_parsers():
     assert "/api/search?q=test" in cleaned_katana_jsonl
     print("[✓] Katana JSONL Parser OK")
 
+    # 9. Test Httpx Parser (JSONL, JSON Array & TXT)
+    httpx_jsonl_sample = """
+    {"timestamp":"2026-11-04T12:00:00Z","url":"https://target.com","status_code":200,"title":"Home Portal","webserver":"nginx/1.24","tech":["Cloudflare","Vue.js"]}
+    {"timestamp":"2026-11-04T12:00:01Z","url":"https://target.com/admin","status_code":403,"title":"Access Denied","webserver":"nginx/1.24"}
+    {"timestamp":"2026-11-04T12:00:02Z","url":"https://old.target.com","status_code":301,"location":"https://target.com"}
+    {"timestamp":"2026-11-04T12:00:03Z","url":"https://target.com/missing","status_code":404}
+    """
+    cleaned_httpx_jsonl = clean_and_parse_tool_data("httpx", httpx_jsonl_sample)
+    assert "https://target.com" in cleaned_httpx_jsonl
+    assert "Status: 200" in cleaned_httpx_jsonl
+    assert "Home Portal" in cleaned_httpx_jsonl
+    assert "Status: 403" in cleaned_httpx_jsonl
+    assert "https://target.com/missing" not in cleaned_httpx_jsonl  # 404 filtrado
+    print("[✓] Httpx JSONL Parser OK")
+
+    httpx_txt_sample = """
+    https://target.com [200, OK] [nginx/1.24] [Home Portal]
+    https://target.com/admin [403, Forbidden] [nginx/1.24] [Forbidden]
+    https://old.target.com [301, https://target.com]
+    https://target.com/notfound [404, Not Found]
+    """
+    cleaned_httpx_txt = clean_and_parse_tool_data("httpx", httpx_txt_sample)
+    assert "https://target.com" in cleaned_httpx_txt
+    assert "Home Portal" in cleaned_httpx_txt
+    assert "https://target.com/notfound" not in cleaned_httpx_txt  # 404 filtrado
+    print("[✓] Httpx TXT Parser OK")
+
 def test_scanner_and_tool_recognition():
     tmp_dir = tempfile.mkdtemp()
     try:
