@@ -45,9 +45,10 @@ class TriageEngine:
                 {"role": "user", "content": prompt}
             ]
             completion = client.chat.completions.create(
-                model=model_name,  
+                model=model_name,
                 messages=messages,
-                temperature=0.2 
+                temperature=0.2,
+                max_tokens=7000  # Groq free tier: cap explícito para evitar corte abrupto sin señal de error
             )
             return completion.choices[0].message.content
         except Exception as e:
@@ -78,12 +79,15 @@ class TriageEngine:
 
     def execute_correlation(self, master_tool_data: dict, report_title: str, user_query: str = "") -> str:
         formatted_payload = ""
-        # Presupuesto adaptativo: Groq tiene un límite estricto de 6,000 TPM en capa gratuita;
+        # Presupuesto adaptativo: Groq free tier ~6K TPM de entrada + ~8K de salida;
         # Gemini y OpenRouter admiten ventanas masivas de tokens.
         if self.provider == "groq":
-            MAX_CHARS_PER_TOOL = 3500
+            MAX_CHARS_PER_TOOL = 3000
         else:
             MAX_CHARS_PER_TOOL = 35000
+
+        active_tools = list(master_tool_data.keys())
+        tool_count = len(active_tools)
 
         for tool_name, content in master_tool_data.items():
             cleaned_lines = []
@@ -110,7 +114,29 @@ class TriageEngine:
             formatted_payload += f"\n[TOOL / ARTIFACT MODULE: {tool_name.upper()}]\n"
             formatted_payload += compact_content + "\n"
 
-        # ── SYSTEM INSTRUCTION ──────────────────────────────────────────────────
+        # ── INSTRUCCIÓN DE DENSIDAD (específica por proveedor) ──────────────────
+        # Para Groq free tier: el output está limitado a ~8192 tokens totales.
+        # Forzamos al modelo a ser denso desde el principio para no truncar Sección 3.
+        if self.provider == "groq":
+            density_instruction = (
+                f"\n⚠ RESTRICCIÓN DE TOKENS ACTIVA (proveedor Groq free tier) ⚠\n"
+                f"Se detectaron {tool_count} herramienta(s): {', '.join(active_tools)}.\n"
+                f"Tu espacio de salida es ESTRICTAMENTE limitado a ~7000 tokens totales.\n"
+                f"DISTRIBUCIÓN OBLIGATORIA:\n"
+                f"  · Sección 1: máximo 5 líneas + métricas. Sin párrafos extensos.\n"
+                f"  · Sección 2: tabla compacta. Celdas cortas, sin redacción extensa.\n"
+                f"  · Sección 3: COMPLETA todos los hallazgos. Es la prioridad máxima.\n"
+                f"    - Cada campo de cada hallazgo: máximo 2 líneas densas. Sin introducción, sin relleno.\n"
+                f"    - Si debes elegir entre recortar S1/S2 o S3, recorta S1 y S2.\n"
+                f"  · PROHIBIDO cerrar el informe hasta documentar el último hallazgo de la Sección 2.\n"
+                f"  · PROHIBIDO escribir 'Ver hallazgo anterior' o referencias cruzadas que eludan documentar.\n"
+            )
+        else:
+            density_instruction = (
+                f"\nSe detectaron {tool_count} herramienta(s): {', '.join(active_tools)}.\n"
+                f"Documenta TODOS los hallazgos en Sección 3. No cierres el informe antes.\n"
+            )
+
         system_instruction = (
             "Eres un Analista Senior de Ciberseguridad e Infraestructura — Zero-Execution Triage Engine.\n"
             "Tu misión: sintetizar artefactos de escaneo y entregar un informe técnico riguroso, completo y de alto impacto.\n\n"
@@ -164,7 +190,7 @@ class TriageEngine:
         prompt = f"""[METADATA DEL REPORTE]
 Título   : {report_title}
 Objetivo : {user_query if user_query else "Triage técnico y correlación de seguridad sobre los artefactos provistos."}
-
+{density_instruction}
 [ESTRUCTURA DE SALIDA — SIGUE ESTE ESQUELETO EXACTO]
 
 Genera el informe en Markdown usando exactamente estas 3 secciones.
