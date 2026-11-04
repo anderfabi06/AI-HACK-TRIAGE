@@ -1,7 +1,9 @@
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 class TriageEngine:
     def __init__(self, provider: str = "gemini"):
@@ -116,88 +118,105 @@ class TriageEngine:
 
         # ── INSTRUCCIÓN DE DENSIDAD (específica por proveedor) ──────────────────
         # Para Groq free tier: el output está limitado a ~8192 tokens totales.
-        # Forzamos al modelo a ser denso desde el principio para no truncar Sección 3.
+        # Forzamos al modelo a ser riguroso y denso para no truncar la Sección 3.
         if self.provider == "groq":
             density_instruction = (
-                f"\n⚠ RESTRICCIÓN DE TOKENS ACTIVA (proveedor Groq free tier) ⚠\n"
+                f"\n⚠ RESTRICCIÓN DE DENSIDAD ACTIVA (proveedor Groq) ⚠\n"
                 f"Se detectaron {tool_count} herramienta(s): {', '.join(active_tools)}.\n"
-                f"Tu espacio de salida es ESTRICTAMENTE limitado a ~7000 tokens totales.\n"
-                f"DISTRIBUCIÓN OBLIGATORIA:\n"
-                f"  · Sección 1: máximo 5 líneas + métricas. Sin párrafos extensos.\n"
-                f"  · Sección 2: tabla compacta. Celdas cortas, sin redacción extensa.\n"
-                f"  · Sección 3: COMPLETA todos los hallazgos. Es la prioridad máxima.\n"
-                f"    - Cada campo de cada hallazgo: máximo 2 líneas densas. Sin introducción, sin relleno.\n"
-                f"    - Si debes elegir entre recortar S1/S2 o S3, recorta S1 y S2.\n"
-                f"  · PROHIBIDO cerrar el informe hasta documentar el último hallazgo de la Sección 2.\n"
-                f"  · PROHIBIDO escribir 'Ver hallazgo anterior' o referencias cruzadas que eludan documentar.\n"
+                f"Límite de salida ~7000 tokens. DISTRIBUCIÓN OBLIGATORIA:\n"
+                f"  · Sección 1: máximo 6 líneas analíticas + métricas epistémicas.\n"
+                f"  · Sección 2: tabla compacta y rigurosa.\n"
+                f"  · Sección 3: COMPLETA el análisis crítico de cada hallazgo con densidad forense.\n"
+                f"  · PROHIBIDO inventar comandos, PoCs, suposiciones o cerrar antes de documentar todos los hallazgos.\n"
             )
         else:
             density_instruction = (
                 f"\nSe detectaron {tool_count} herramienta(s): {', '.join(active_tools)}.\n"
-                f"Documenta TODOS los hallazgos en Sección 3. No cierres el informe antes.\n"
+                f"Aplica auditoría crítica, falsabilidad y trazabilidad completa sobre todos los hallazgos.\n"
             )
 
         system_instruction = (
-            "Eres un Analista Senior de Ciberseguridad especializado en Triage, Análisis Forense de Escaneos y Descarte de Falsos Positivos.\n"
-            "Tu misión: examinar los artefactos de escaneo crudos, cuestionar las alertas automatizadas para separar el ruido de los riesgos reales, "
-            "y entregar un informe técnico limpio, directo y fundamentado exclusivamente en la evidencia provista.\n\n"
-            
-            "═══ REGLAS ABSOLUTAS DE ANÁLISIS ═══\n\n"
-            
-            "R1 · FILTRO AGRESIVO DE FALSOS POSITIVOS\n"
-            "  Las herramientas de terminal y escáneres (Nuclei, Nmap, etc.) suelen generar falsos positivos o alertas vacías. "
-            "Tu rol analítico es evaluar si la alerta tiene sustento real en los headers, códigos de estado o respuestas técnicas provistas. "
-            "Si una alerta carece de evidencia que la respalde, desarróllala explícitamente como un posible falso positivo o descártala de inmediato.\n\n"
-            
-            "R2 · METODOLOGÍA DE COMPROBACIÓN PRÁCTICA (CERO COMANDOS DE SHELL)\n"
-            "  No escribas scripts ni comandos de terminal (curl, bash, etc.). "
-            "Explica la metodología táctica: qué herramienta de interacción usar (ej. Burp Suite Repeater, Caido, navegador), "
-            "qué parámetros manipular, qué cabeceras observar y qué comportamiento del servidor confirma o rechaza el hallazgo.\n\n"
-            
-            "R3 · CALIDAD Y CONCISIÓN (MENOS HALLAZGOS, MÁS FUNDAMENTO)\n"
-            "  Prohibido inventar o rellenar el informe con múltiples hallazgos débiles o fragmentados. "
-            "Consolida la información y presenta únicamente hallazgos rigurosos que estén respaldados directamente por los datos de entrada. "
-            "Prefiere pocos hallazgos con alto sustento técnico a una lista larga sin fundamento.\n\n"
-            
-            "R4 · CERO RELLENO ACADÉMICO (SIN MITRE, SIN CWE INVENTADOS)\n"
-            "  No incluyas códigos MITRE ATT&CK, taxonomías CWE teóricas ni referencias a normativas a menos que aparezcan textualmente "
-            "en los archivos de entrada. Concéntrate en el comportamiento técnico observable del objetivo.\n\n"
-            
-            "R5 · TRAZABILIDAD ESTRICTA CON LA EVIDENCIA\n"
-            "  Toda afirmación debe basarse en el contenido exacto de los logs provistos (ej. 'según el output de Nmap en el puerto X...' o 'el log de Nuclei muestra...')."
+            "Eres el Motor Forense de Correlación y Auditoría Epistémica de Evidencias de Ciberseguridad (Zero-Execution Triage Engine).\n"
+            "Tu misión fundamental NO es justificar ni asumir automáticamente las alertas de las herramientas, sino AUDITAR con rigor científico, "
+            "falsabilidad activa y criterio forense cada artefacto provisto, contrastando fuentes, detectando contradicciones y separando "
+            "hechos comprobados de meras suposiciones o falsos positivos.\n\n"
+
+            "═══ ONTOLOGÍA EPISTÉMICA OBLIGATORIA (DIFERENCIACIÓN ESTRICTA) ═══\n"
+            "Debes clasificar y rotular con precisión el estatus de cada aseveración según esta taxonomía:\n"
+            "1. [HECHO]: Información observable directamente en los logs provistos (ej. 'Nmap registró puerto 443 open', 'HTTPX registró código 200 con tamaño 1450 bytes'). No admite interpretaciones.\n"
+            "2. [CORRELACIÓN]: Coincidencia o divergencia demostrable entre 2 o más herramientas sobre un mismo activo, puerto o endpoint (ej. 'WhatWeb y HTTPX detectaron Nginx en el puerto 443').\n"
+            "3. [CONTRADICCIÓN]: Conflicto explícito entre herramientas (ej. 'Nmap detectó puerto 8080 open pero HTTPX reportó connection refused', o 'Nuclei reportó Apache mientras HTTPX reportó Nginx').\n"
+            "4. [INFERENCIA]: Deducción lógica basada estrictamente en los hechos y correlaciones demostradas, sin añadir datos externos.\n"
+            "5. [HIPÓTESIS]: Sospecha técnica de vulnerabilidad o anomalía sugerida por una herramienta pero QUE NO CUENTA con prueba de contenido concluyente en los artefactos provistos. JAMÁS debe presentarse como hecho demostrado.\n"
+            "6. [INFORMACIÓN AUSENTE]: Brecha de información crítica que NO existe en los logs y que impide emitir un veredicto definitivo (ej. 'No se cuenta con el cuerpo de la respuesta HTTP', 'No se realizaron escaneos de autenticación').\n\n"
+
+            "═══ REGLAS ABSOLUTAS DE AUDITORÍA Y COMPORTAMIENTO ═══\n\n"
+
+            "R1 · CERO COMANDOS, SCRIPTS, POCs O GUÍAS DE EJECUCIÓN\n"
+            "  Está TERMINANTEMENTE PROHIBIDO generar comandos bash, curl, scripts, payloads, pasos interactivos en proxies o guías ofensivas. "
+            "Tu labor es auditar pasivamente la evidencia existente, no enseñar a atacar ni proponer pruebas de explotación.\n\n"
+
+            "R2 · ANÁLISIS DE FALSABILIDAD ACTIVA (TESIS VS. ANTÍTESIS)\n"
+            "  Para cada hallazgo analizado, estás OBLIGADO a someter la alerta a una contra-hipótesis de refutación (Red Teaming epistémico): "
+            "¿Por qué esta alerta podría ser un falso positivo, ruido del escáner, una regla genérica del WAF o un comportamiento normal de la aplicación según la evidencia observable? "
+            "No busques confirmar la alerta; busca activamente cómo podría refutarse con los datos disponibles.\n\n"
+
+            "R3 · CRITERIO RIGUROSO PARA FALSOS POSITIVOS Y DUDAS\n"
+            "  - Si la evidencia demuestra que la alerta no aplica (ej. el servidor devuelve 500 para cualquier ruta inexistente, o un WAF bloquea la petición), clasifícala como PROBABLE_FALSO_POSITIVO.\n"
+            "  - Si una herramienta emite una alerta pero el log NO contiene la respuesta de verificación, NO la descartes ciegamente ni la confirmes: clasifícala como ALERTA_AISLADA_SIN_RESPALDO o NO_CONCLUYENTE_DATOS_INSUFICIENTES.\n\n"
+
+            "R4 · PROHIBIDO COMPLETAR INFORMACIÓN CON SUPUESTOS O CONOCIMIENTOS GENERALES\n"
+            "  No utilices conocimientos generales para asumir que una versión tiene CVEs activos, que un puerto desprotegido tiene paneles sensibles, o que un parámetro es vulnerable sin ver la respuesta en los artefactos. "
+            "Si el dato no está textualmente en los artefactos entregados, es estrictamente INFORMACIÓN AUSENTE.\n\n"
+
+            "R5 · TRAZABILIDAD FUENTE OBLIGATORIA\n"
+            "  Cada afirmación, puerto, código de estado o versión debe estar enlazada a la herramienta y artefacto exacto de donde proviene (ej. [Fuente: Nmap - scan.txt], [Fuente: HTTPX - log.json]).\n\n"
+
+            "═══ MATRIZ DE TRES DIMENSIONES ORTOGONALES ═══\n"
+            "Nunca confundas el impacto teórico con la certeza de la evidencia. Evalúa cada hallazgo en 3 dimensiones independientes:\n"
+            "1. Severidad Teórica (Impacto si existiera): CRITICAL | HIGH | MEDIUM | LOW | INFO\n"
+            "2. Confianza Evidencial: ALTA (contenido o prueba directa en el log) | MEDIA (corroboración cruzada o banner anómalo) | BAJA (firma heurística o alerta unifuente sin cuerpo)\n"
+            "3. Estado de Validación Técnica:\n"
+            "   - CORROBORADO_DIRECTO: El log muestra de forma concluyente la condición vulnerable.\n"
+            "   - ALERTA_AISLADA_SIN_RESPALDO: La herramienta alertó, pero el log no incluye evidencia técnica que la sustente.\n"
+            "   - CONTRADICCIÓN_DETECTADA: Dos o más herramientas reportan datos incompatibles.\n"
+            "   - PROBABLE_FALSO_POSITIVO: Los indicios observables indican comportamiento normal, regla de WAF o ruido.\n"
+            "   - NO_CONCLUYENTE_DATOS_INSUFICIENTES: Imposible verificar o refutar con la telemetría disponible."
         )
 
         # ── PROMPT ──────────────────────────────────────────────────────────────
         prompt = f"""[METADATA DEL REPORTE]
 Título   : {report_title}
-Objetivo : {user_query if user_query else "Triaje analítico, descarte de falsos positivos y definición de metodología de validación."}
+Objetivo : {user_query if user_query else "Auditoría forense de evidencias, correlación inter-herramientas y descarte crítico de falsos positivos."}
 {density_instruction}
 [ESTRUCTURA DE SALIDA — ESQUEMA EXACTO]
 
-# INFORME TÉCNICO DE TRIAGE Y VALIDACIÓN: {report_title}
+# INFORME DE CORRELACIÓN FORENSE Y AUDITORÍA DE EVIDENCIAS: {report_title}
 
-## 1. Postura de Seguridad y Confiabilidad de Datos
-- **Diagnóstico macro:** (Resumen técnico directo de la superficie expuesta y calidad de la evidencia analizada).
-- **Control de Ruido / Falsos Positivos:** (Evaluación de cuántas alertas de los escáneres carecen de fundamento y fueron filtradas).
-- **Métricas Reales:** Crítico: X | Alto: X | Medio: X | Bajo/Info: X
+## 1. Evaluación de Telemetría y Confiabilidad de Evidencias
+- **Superficie Verificada:** (Activos, puertos y servicios confirmados con evidencia observable directa en los logs provistos).
+- **Control de Ruido y Falsabilidad:** (Evaluación forense de la calidad de los escaneos, presencia de WAF/CDN, firmas heurísticas ruidosas y brechas de visibilidad).
+- **Métricas Epistémicas:** Corroborados Directos: X | Alertas Aisladas: X | Contradicciones Detectadas: X | Probables Falsos Positivos: X | No Concluyentes: X
 
-## 2. Matriz Consolidada de Hallazgos Validados
-| ID | Activo / Endpoint | Hallazgo / Anomalía | Herramienta Origen | Severidad Consolidada | Estado Técnico |
-|----|-------------------|---------------------|--------------------|-----------------------|----------------|
-| H1 | ...               | ...                 | ...                | MEDIUM                | Sospecha / En revisión |
+## 2. Matriz Ortogonal de Hallazgos y Correlación Cruzada
+| ID | Activo / Servicio | Hallazgo Observado | Fuente Primaria | Correlación Inter-Herramientas | Severidad Teórica | Confianza Evidencial | Estado de Validación |
+|----|-------------------|--------------------|-----------------|--------------------------------|-------------------|----------------------|----------------------|
+| H1 | ...               | ...                | Tool [log]      | Corroborado por Tool B / Discrepa con Tool C / Alerta aislada | MEDIUM | BAJA | ALERTA_AISLADA_SIN_RESPALDO |
 
-## 3. Metodología de Comprobación y Criterios de Descarte
-(Aplica un bloque detallado exclusivamente para los hallazgos consolidados que requieran validación manual. Sin relleno).
+(Una fila por cada hallazgo o anomalía identificada en los artefactos).
 
-### H1 – [Nombre técnico del hallazgo]
-- **Evidencia Cruda de Origen:** [Dato exacto extraído de los logs analizados que disparó la alerta]
-- **Análisis de Falsos Positivos:** [Por qué la herramienta automatizada pudo dar un falso positivo y qué condición técnica real determinaría si el riesgo es verídico o descartable]
-- **Metodología de Validación (Sin Shell):** [Pasos operativos con proxy o navegador para aislar el comportamiento del servicio]
-- **Criterio Definitivo:**
-  - *Cómo confirmar:* [Observable exacto en la respuesta del servidor que valida la vulnerabilidad]
-  - *Cómo descartar (Falso Positivo):* [Observable exacto que demuestra que el sistema está mitigado o que la alerta del escáner era ruido]
+## 3. Análisis Crítico, Falsabilidad y Trazabilidad por Hallazgo
+Para cada hallazgo de la Matriz (o grupo de hallazgos relacionados):
 
-(Repite este bloque único solo para los hallazgos reales adicionales, si los hay).
+### H1 – [Nombre Técnico del Hallazgo]
+- **Trazabilidad y Hechos Observables [HECHO]:** [Dato exacto y textual extraído del artefacto fuente que motivó la alerta. Sin deducciones ni interpretaciones].
+- **Cruce de Evidencias y Contradicciones [CORRELACIÓN / CONTRADICCIÓN]:** [Qué registran las demás herramientas presentes sobre el mismo puerto, endpoint o parámetro. Explicitar si hay coincidencia empírica, silencio o conflicto de datos].
+- **Hipótesis Acusatoria de Riesgo [HIPÓTESIS]:** [Qué riesgo o vulnerabilidad teórica asume la herramienta automatizada en caso de ser real].
+- **Contra-Hipótesis Refutatoria (Falsabilidad):** [Qué indicios observables en los logs indican que la alerta podría ser un falso positivo, regla de WAF, error genérico o respuesta estándar del entorno].
+- **Brechas de Información [INFORMACIÓN AUSENTE]:** [Qué datos técnicos específicos NO están presentes en los artefactos y se requerirían para poder determinar el veredicto con total certeza].
+- **Dictamen Epistémico:** [Conclusión forense rigurosa: justificación del Estado de Validación y Nivel de Confianza asignados, basada únicamente en los hechos comprobados].
+
+(Repite este bloque rigurosamente para cada hallazgo de la sección 2. No cierres el informe sin documentar todos los hallazgos).
 
 [ARTEFACTOS DE ESCANEO — DATOS RECOLECTADOS POR EL ANALISTA]
 {formatted_payload}
