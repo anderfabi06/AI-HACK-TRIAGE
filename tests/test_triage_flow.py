@@ -132,6 +132,57 @@ def test_parsers():
     assert "/dashboard" in cleaned_ffuf_json
     print("[✓] Ffuf JSON Parser OK")
 
+    # 7. Test WhatWeb Parser (JSON & TXT)
+    whatweb_json_sample = """[
+      {
+        "target": "https://target.com",
+        "http_status": 200,
+        "plugins": {
+          "Apache": {"version": ["2.4.52"]},
+          "PHP": {"version": ["8.1.2"]},
+          "HTTPServer": {"os": ["Ubuntu Linux"], "string": ["Apache/2.4.52 (Ubuntu)"]},
+          "Cloudflare": {},
+          "Title": {"string": ["Test Portal"]}
+        }
+      }
+    ]"""
+    cleaned_whatweb = clean_and_parse_tool_data("whatweb", whatweb_json_sample)
+    assert "Apache" in cleaned_whatweb
+    assert "PHP" in cleaned_whatweb
+    assert "Cloudflare" in cleaned_whatweb
+    print("[✓] WhatWeb JSON Parser OK")
+
+    whatweb_txt_sample = "https://target.com [200 OK] Apache[2.4.52], Country[US], HTTPServer[Ubuntu Linux], IP[1.2.3.4], PHP[8.1.2], Title[Portal]"
+    cleaned_whatweb_txt = clean_and_parse_tool_data("whatweb", whatweb_txt_sample)
+    assert "Apache[2.4.52]" in cleaned_whatweb_txt
+    assert "PHP[8.1.2]" in cleaned_whatweb_txt
+    print("[✓] WhatWeb TXT Parser OK")
+
+    # 8. Test Katana Parser (JSONL & TXT)
+    katana_txt_sample = """
+    https://target.com/
+    https://target.com/login
+    https://target.com/api/v1/users?id=10
+    https://target.com/style.css
+    https://target.com/logo.png
+    """
+    cleaned_katana = clean_and_parse_tool_data("katana", katana_txt_sample)
+    assert "/api/v1/users?id=10" in cleaned_katana
+    assert "Vectores de Inyección" in cleaned_katana
+    assert "/login" in cleaned_katana
+    assert "style.css" not in cleaned_katana  # Recursos estáticos descartados
+    assert "logo.png" not in cleaned_katana
+    print("[✓] Katana TXT Parser OK")
+
+    katana_jsonl_sample = """
+    {"timestamp":"2026-11-04","request":{"method":"GET","endpoint":"https://target.com/admin/dashboard"},"response":{"status_code":200}}
+    {"timestamp":"2026-11-04","request":{"method":"GET","endpoint":"https://target.com/api/search?q=test"},"response":{"status_code":200}}
+    """
+    cleaned_katana_jsonl = clean_and_parse_tool_data("katana", katana_jsonl_sample)
+    assert "/admin/dashboard" in cleaned_katana_jsonl
+    assert "/api/search?q=test" in cleaned_katana_jsonl
+    print("[✓] Katana JSONL Parser OK")
+
 def test_scanner_and_tool_recognition():
     tmp_dir = tempfile.mkdtemp()
     try:

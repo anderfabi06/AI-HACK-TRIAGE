@@ -75,10 +75,12 @@ def parse_nuclei(content: str) -> str:
 
     entries = []
 
-    # Intento 1: Es un array JSON
-    if content.startswith("[") and content.endswith("]"):
+    # Intento 1: Es un array JSON (busca [ ... ])
+    start_bracket = content.find("[")
+    end_bracket = content.rfind("]")
+    if start_bracket != -1 and end_bracket != -1 and end_bracket > start_bracket:
         try:
-            entries = json.loads(content)
+            entries = json.loads(content[start_bracket:end_bracket+1])
             if isinstance(entries, list):
                 return parse_nuclei_json_entries(entries)
         except Exception:

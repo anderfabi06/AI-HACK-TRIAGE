@@ -47,6 +47,9 @@ def parse_ffuf_json(content: str) -> str:
             continue
 
         status = item.get("status", 0)
+        # Descartar 404 explícitamente para evitar miles de falsos positivos
+        if status == 404:
+            continue
         length = item.get("length", 0)
         redirect = item.get("redirectlocation", "")
 
@@ -173,15 +176,18 @@ def parse_ffuf_text(content: str) -> str:
 
 def parse_ffuf(content: str) -> str:
     """Punto de entrada principal para parsear ffuf (tanto en JSON como en texto de consola)."""
-    stripped = content.strip()
+    stripped = clean_ansi(content).strip()
     if not stripped:
         return ""
 
-    # Caso 1: Archivo JSON de ffuf
-    if stripped.startswith("{") and '"results"' in stripped:
-        parsed_json = parse_ffuf_json(stripped)
-        if parsed_json:
-            return parsed_json
+    # Caso 1: Archivo JSON de ffuf (identifica JSON puro o envuelto)
+    if '"results"' in stripped:
+        start_idx = stripped.find("{")
+        end_idx = stripped.rfind("}")
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            parsed_json = parse_ffuf_json(stripped[start_idx:end_idx+1])
+            if parsed_json:
+                return parsed_json
 
     # Caso 2: Texto CLI
     return parse_ffuf_text(content)
