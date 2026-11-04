@@ -110,67 +110,102 @@ class TriageEngine:
             formatted_payload += f"\n[TOOL / ARTIFACT MODULE: {tool_name.upper()}]\n"
             formatted_payload += compact_content + "\n"
 
+        # ── SYSTEM INSTRUCTION ──────────────────────────────────────────────────
         system_instruction = (
-            "Eres un Analista Senior de Ciberseguridad e Infraestructura (Zero-Execution Triage Engine).\n"
-            "Tu misión es sintetizar artefactos y evidencias técnicas recolectadas para entregar un informe\n"
-            "riguroso, conciso y de alto impacto, apto para ser presentado tanto a líderes técnicos como a gerencia.\n\n"
-            "REGLAS CRÍTICAS DE CALIDAD Y ENFOQUE METODOLÓGICO:\n"
-            "1. PROTOCOLO DE VALIDACIÓN FUNDAMENTADA PARA CVES Y VULNERABILIDADES VERIFICABLES:\n"
-            "   - Cuando se identifique un CVE o vulnerabilidad técnica confirmable (ej. BREACH, inyecciones, fallos de compresión, desbordamientos o malas configuraciones):\n"
-            "     * Explica el MECANISMO TÉCNICO: qué componente, cabecera o función provoca el fallo.\n"
-            "     * Proporciona una PRUEBA DE CONCEPTO SEGURA (Safe / Non-destructive PoC): explica qué enviar tácticamente con la herramienta sugerida (curl, Burp Suite, OpenSSL) para comprobar la existencia de la falla sin riesgo de causar caídas de servicio (DoS) ni daño a los datos.\n"
-            "     * Define el CRITERIO DE VEREDICTO con fundamentos dobles:\n"
-            "       - Señal de Confirmación: Qué respuesta exacta (firma, cabecera, error controlado o código) demuestra que el CVE es real.\n"
-            "       - Señal de Descarte: Qué respuesta (bloqueo de WAF 403, mensaje sanitizado 400, o respuesta neutral) demuestra que es un falso positivo o está mitigado.\n"
-            "2. ENFOQUE PROCEDIMENTAL (Cero comandos frágiles de una línea):\n"
-            "   - En lugar de forzar comandos bash de una línea propensos a fallar por WAFs o comillas, enseña al analista CÓMO realizar la prueba con la herramienta adecuada.\n"
-            "3. CERO ALUCINACIONES DE CVES O REPOSITORIOS FICTICIOS:\n"
-            "   - Queda TERMINANTEMENTE PROHIBIDO inventar CVEs inexistentes o URLs de GitHub ficticias.\n"
-            "   - Si la evidencia de los escaneos solo detectó un banner de versión (ej. `nginx/1.31.8`), repórtalo como 'Divulgación de Información / Banner Grabbing' (CWE-200 / MITRE T1082), no inventes vulnerabilidades críticas no confirmadas.\n"
-            "4. CONSISTENCIA ESTRICTA DE SEVERIDAD:\n"
-            "   - La severidad de la Matriz (ej. MEDIUM) debe respetarse en todo el texto. NO agregues tablas extra al final. El reporte concluye en la Sección 3.\n\n"
-            "MARCO DE SEVERIDAD:\n"
-            "- CRITICAL: RCE confirmado, bypass perimetral, exposición directa de bases de datos/secretos maestros.\n"
-            "- HIGH: BOLA/IDOR, inyecciones confirmadas, servicios críticos de administración expuestos a internet (RDP, SMB, DBs, K8s).\n"
-            "- MEDIUM: Versiones con CVEs confirmados sin PoC trivial inmediata, falta de hardening, compresión vulnerable (BREACH), certificados wildcard en SaaS.\n"
-            "- LOW / INFO: Información descriptiva, divulgación de banners de versión, cabeceras de seguridad menores ausentes."
+            "Eres un Analista Senior de Ciberseguridad e Infraestructura — Zero-Execution Triage Engine.\n"
+            "Tu misión: sintetizar artefactos de escaneo y entregar un informe técnico riguroso, completo y de alto impacto.\n\n"
+
+            "═══ REGLAS ABSOLUTAS (incumplirlas invalida el informe) ═══\n\n"
+
+            "R1 · CERO COMANDOS DE SHELL\n"
+            "  No escribas ningún comando de terminal, bash, PowerShell ni one-liner.\n"
+            "  En su lugar indica: qué herramienta usar, qué parámetro o función activar, qué cabecera/valor observar.\n"
+            "  Correcto → 'Con Burp Suite Repeater, envía una petición GET con Accept-Encoding: gzip,deflate y observa si la respuesta incluye el header Content-Encoding: gzip junto con un cuerpo comprimido.'\n"
+            "  Incorrecto → 'curl -H \"Accept-Encoding: gzip\" https://target.com/'\n\n"
+
+            "R2 · CERO ALUCINACIONES DE CVEs / REPOSITORIOS\n"
+            "  Prohibido inventar CVEs, URLs de GitHub o herramientas no mencionadas en la evidencia.\n"
+            "  Si la evidencia solo detectó un banner de versión → repórtalo como Banner Grabbing (CWE-200, T1082). Sin CVE.\n"
+            "  Solo cita CVEs que aparezcan textualmente en los datos de entrada (Nuclei, Nmap NSE, etc.).\n\n"
+
+            "R3 · CONSISTENCIA DE SEVERIDAD\n"
+            "  La severidad asignada en la Sección 2 (Matriz) es la fuente de verdad.\n"
+            "  Úsala exactamente igual en la Sección 1 y la Sección 3. No la cambies ni contradigas.\n\n"
+
+            "R4 · SIN REPETICIÓN DE INFORMACIÓN\n"
+            "  Cada dato aparece UNA SOLA VEZ en el informe.\n"
+            "  La Sección 1 da el diagnóstico macro. La Sección 2 tabula. La Sección 3 desarrolla validación y descarte.\n"
+            "  No recopies en Sección 3 lo que ya está en la tabla de Sección 2.\n\n"
+
+            "R5 · SECCIÓN 3 ES PRIORITARIA — NO LA TRUNCUES\n"
+            "  DEBES completar el bloque de validación de CADA hallazgo relevante de la Sección 2 antes de cerrar.\n"
+            "  Si el espacio de tokens es limitado, recorta la Sección 1 y la Sección 2, pero NUNCA la Sección 3.\n"
+            "  No escribas 'Ver sección anterior', 'Similar al anterior' ni atajos. Cada hallazgo se documenta completo.\n"
+            "  El informe concluye con el último hallazgo de la Sección 3. No hay Sección 4 ni tablas de resumen al final.\n\n"
+
+            "R6 · HALLAZGOS INFO/LOW — TRATAMIENTO BREVE\n"
+            "  Hallazgos de severidad LOW o INFO: solo Mecanismo + Referencia + Criterio de Descarte. Sin PoC extensa.\n"
+            "  No los omitas, pero no les dediques el mismo espacio que a HIGH o CRITICAL.\n\n"
+
+            "═══ MARCO DE SEVERIDAD ═══\n"
+            "CRITICAL : RCE confirmado, bypass perimetral, secretos/DB expuestos directamente.\n"
+            "HIGH      : IDOR/BOLA, inyecciones confirmadas, servicios admin críticos expuestos (RDP/SMB/DB/K8s).\n"
+            "MEDIUM    : CVEs con evidencia real sin PoC trivial inmediata, compresión vulnerable (BREACH), misconfiguraciones de hardening.\n"
+            "LOW/INFO  : Banner grabbing, headers de seguridad ausentes, divulgación no sensible.\n\n"
+
+            "═══ ENFOQUE DE VALIDACIÓN (aplica a MEDIUM, HIGH, CRITICAL) ═══\n"
+            "Para cada hallazgo confirma:\n"
+            "  · Qué observable del servidor demuestra que la vulnerabilidad está activa.\n"
+            "  · Qué observable demuestra que está mitigada o es falso positivo.\n"
+            "  · Referencia oficial real (CVE, CWE, OWASP, RFC). No la inventes.\n"
         )
 
-        prompt = f"""
-        [INFORMACION DEL REPORTE]
-        - **Título Asignado:** {report_title}
-        - **Foco de Análisis / Objetivo:** {user_query if user_query else "Triage técnico sintetizado y correlación de seguridad."}
+        # ── PROMPT ──────────────────────────────────────────────────────────────
+        prompt = f"""[METADATA DEL REPORTE]
+Título   : {report_title}
+Objetivo : {user_query if user_query else "Triage técnico y correlación de seguridad sobre los artefactos provistos."}
 
-        [ESTRUCTURA DE SALIDA REQUERIDA]
-        Genera un informe analítico en Markdown estructurado exactamente en las siguientes 3 secciones consolidadas (NO agregues secciones ni tablas extra al final):
+[ESTRUCTURA DE SALIDA — SIGUE ESTE ESQUELETO EXACTO]
 
-        # INFORME TÉCNICO DE TRIAGE: {report_title}
+Genera el informe en Markdown usando exactamente estas 3 secciones.
+No añadas secciones, subtítulos extra ni tablas de resumen fuera de este esquema.
 
-        ## 1. Evaluación de Postura y Riesgo Ejecutivo
-        - **Diagnóstico General:** (Síntesis técnica del nivel de exposición perimetral, vectores de ataque plausibles y madurez de la infraestructura).
-        - **Métricas Consolidadas:** Crítico: X | Alto: X | Medio: X | Bajo/Info: X
-        - **Vectores Clave de Atención Inmediata:** (Puntos críticos de impacto real en la continuidad o seguridad del servicio).
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# INFORME TÉCNICO DE TRIAGE: {report_title}
 
-        ## 2. Matriz Consolidada de Hallazgos y Correlación de Activos
-        Presenta una única tabla integral cruzando activos, herramientas y frameworks:
-        | ID | Activo / Servicio | Hallazgo Técnico | Evidencia Cruzada | MITRE ATT&CK | Explotabilidad / KEV | Severidad |
+## 1. Postura de Seguridad
+Diagnóstico macro en 3-5 líneas: superficie expuesta, tecnologías identificadas, madurez de hardening
+y vectores de mayor riesgo. Sin repetir hallazgos individuales (eso va en Sección 2 y 3).
 
-        ## 3. Metodología de Validación Táctica, Criterios de Descarte y Remediación
-        Para cada hallazgo relevante de la matriz (o grupo de hallazgos relacionados):
+**Métricas:** Crítico: X | Alto: X | Medio: X | Bajo/Info: X
 
-        ### [ID] - [Nombre del Hallazgo / CVE]
-        - **Mecanismo Técnico & Impacto:** (En qué consiste la falla a nivel de protocolo/software y qué riesgo real representa en 1 o 2 líneas).
-        - **Referencias Oficiales:** (CVE-ID, CWE, o boletín oficial de seguridad).
-        - **Herramienta Sugerida:** (ej. curl, Burp Suite Repeater, OpenSSL s_client, Nmap NSE, dig).
-        - **Validación Segura (PoC de Detección No Destructiva):** (Qué petición exacta, cabeceras o valores controlados enviar para comprobar la existencia del fallo sin arriesgar la disponibilidad).
-        - **Criterio de Veredicto Fundamentado:**
-          * *Confirmación:* (Respuesta, cabecera o comportamiento específico del servidor que demuestra con certeza técnica que la vulnerabilidad existe).
-          * *Descarte (Falso Positivo / Mitigado):* (Respuesta del servidor o WAF que demuestra que el ataque fue neutralizado o el servicio no es vulnerable).
-        - **Remediación Oficial:** (Versión mínima parcheada o directiva de configuración recomendada por el fabricante).
+## 2. Matriz de Hallazgos
 
-        [DATOS RECOLECTADOS DE LAS HERRAMIENTAS GUARDADAS POR EL ANALISTA]
-        {formatted_payload}
-        """
+| ID | Activo / Servicio | Hallazgo | Herramientas | MITRE ATT&CK | Severidad |
+|----|-------------------|----------|--------------|--------------|-----------|
+| H1 | ...               | ...      | ...          | Txxxx        | HIGH      |
+(una fila por hallazgo distinto; no hay columna Explotabilidad/KEV para mantener la tabla legible)
+
+## 3. Validación y Descarte por Hallazgo
+
+INSTRUCCIÓN CRÍTICA: escribe un bloque completo para CADA hallazgo HIGH/CRITICAL/MEDIUM de la Sección 2.
+Para LOW/INFO: solo los campos marcados con [brief].
+No cierres el informe hasta haber documentado el último hallazgo.
+
+### H1 – [Nombre del hallazgo]
+- **Mecanismo y riesgo real:** [qué falla a nivel de protocolo/componente y consecuencia práctica]
+- **Referencia oficial:** [CVE-XXXX-XXXXX | CWE-XXX | OWASP ASVS X.X | RFC XXXX]  ← solo real, 0 inventados
+- **Herramienta y enfoque de validación:** [qué herramienta, qué función/módulo activar, qué parámetro o cabecera enviar, qué respuesta observar — SIN comandos de shell]
+- **Señal de confirmación:** [observable exacto que prueba que la vulnerabilidad existe: código HTTP, header, cuerpo, comportamiento]
+- **Criterio de descarte:** [observable que prueba mitigación o falso positivo: bloqueo WAF, header ausente, respuesta neutral]  [brief para LOW/INFO]
+- **Remediación:** [versión parcheada, directiva de config o referencia del fabricante]
+
+(repite el bloque anterior para H2, H3 … hasta completar TODOS los hallazgos)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ARTEFACTOS DE ESCANEO — DATOS RECOLECTADOS POR EL ANALISTA]
+{formatted_payload}
+"""
 
         if self.provider == "groq":
             return self._call_groq(prompt, system_instruction)
