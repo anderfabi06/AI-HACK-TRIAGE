@@ -98,6 +98,40 @@ def test_parsers():
     assert "See: https://" not in cleaned_nikto
     print("[✓] Nikto Parser OK")
 
+    # 6. Test Ffuf Parser (CLI Text & JSON)
+    ffuf_cli_sample = """
+    :: Method           : GET
+    :: URL              : https://target.com/FUZZ
+    :: Wordlist         : /usr/share/wordlists/dirb/common.txt
+    ________________________________________________
+
+    .env                    [Status: 200, Size: 342, Words: 12, Lines: 8, Duration: 25ms]
+    admin                   [Status: 301, Size: 178, Words: 6, Lines: 3, Duration: 32ms]
+    api/v1                  [Status: 403, Size: 280, Words: 20, Lines: 10, Duration: 30ms]
+    notfound                [Status: 404, Size: 150, Words: 4, Lines: 2, Duration: 20ms]
+    """
+    cleaned_ffuf = clean_and_parse_tool_data("ffuf", ffuf_cli_sample)
+    assert "/.env" in cleaned_ffuf
+    assert "RUTA SENSIBLE" in cleaned_ffuf
+    assert "/admin" in cleaned_ffuf
+    assert "/notfound" not in cleaned_ffuf  # 404 filtrado
+    assert ":: Wordlist" not in cleaned_ffuf  # Banner filtrado
+    print("[✓] Ffuf CLI Parser OK")
+
+    ffuf_json_sample = """{
+      "commandline": "ffuf -u https://target.com/FUZZ -w wordlist.txt",
+      "results": [
+        {"input": {"FUZZ": ".git/config"}, "status": 200, "length": 250},
+        {"input": {"FUZZ": "dashboard"}, "status": 302, "length": 180, "redirectlocation": "/login"},
+        {"input": {"FUZZ": "internal"}, "status": 401, "length": 90}
+      ]
+    }"""
+    cleaned_ffuf_json = clean_and_parse_tool_data("ffuf", ffuf_json_sample)
+    assert "/.git/config" in cleaned_ffuf_json
+    assert "RUTA CRÍTICA" in cleaned_ffuf_json
+    assert "/dashboard" in cleaned_ffuf_json
+    print("[✓] Ffuf JSON Parser OK")
+
 def test_scanner_and_tool_recognition():
     tmp_dir = tempfile.mkdtemp()
     try:

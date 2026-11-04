@@ -3,10 +3,11 @@ from .nmap_parser import parse_nmap
 from .nuclei_parser import parse_nuclei
 from .ssl_parser import parse_testssl, parse_sslscan
 from .nikto_parser import parse_nikto
+from .ffuf_parser import parse_ffuf
 from .generic_parser import parse_generic_content
 
 def parse_web_discovery(content: str) -> str:
-    """Filtra salidas de Gobuster, Ffuf, Dirsearch descartando respuestas 404/400 ruidosas."""
+    """Filtra salidas de Gobuster, Dirsearch, Dirb descartando respuestas 404/400 ruidosas."""
     lines = content.splitlines()
     filtered = []
     
@@ -41,7 +42,9 @@ def clean_and_parse_tool_data(tool_name: str, content: str) -> str:
         return parse_sslscan(content)
     elif "nikto" in t_name:
         return parse_nikto(content)
-    elif any(fuzz in t_name for fuzz in ("gobuster", "ffuf", "dirsearch", "dirb", "feroxbuster")):
+    elif "ffuf" in t_name:
+        return parse_ffuf(content)
+    elif any(fuzz in t_name for fuzz in ("gobuster", "dirsearch", "dirb", "feroxbuster")):
         return parse_web_discovery(content)
     else:
         return parse_generic_content(content)
